@@ -4,13 +4,18 @@ import * as vscode from 'vscode';
  * Configuration interface for AI Frontend Optimizer settings
  */
 export interface OptimizerConfig {
-    aiProvider: 'openai' | 'internal';
+    aiProvider: 'openai' | 'anthropic' | 'internal';
     model: string;
     maxNestingDepth: number;
     enableAutoAnalysis: boolean;
     analyzerTimeout: number;
     skipBinaryVerification: boolean;
     verboseLogging: boolean;
+    baseStyleFiles: string[];
+    componentMappingYaml: string;
+    similarityThreshold: number;
+    enableSimilarityScanning: boolean;
+    enableComponentSuggestions: boolean;
 }
 
 /**
@@ -23,7 +28,12 @@ const DEFAULT_CONFIG: OptimizerConfig = {
     enableAutoAnalysis: false,
     analyzerTimeout: 30,
     skipBinaryVerification: false,
-    verboseLogging: false
+    verboseLogging: false,
+    baseStyleFiles: [],
+    componentMappingYaml: '',
+    similarityThreshold: 80,
+    enableSimilarityScanning: true,
+    enableComponentSuggestions: true
 };
 
 /**
@@ -41,8 +51,13 @@ const VALIDATION_RULES = {
         message: 'Analyzer timeout must be between 5 and 300 seconds'
     },
     aiProvider: {
-        allowedValues: ['openai', 'internal'],
-        message: 'AI provider must be either "openai" or "internal"'
+        allowedValues: ['openai', 'anthropic', 'internal'],
+        message: 'AI provider must be either "openai", "anthropic", or "internal"'
+    },
+    similarityThreshold: {
+        min: 0,
+        max: 100,
+        message: 'Similarity threshold must be between 0 and 100'
     }
 };
 
@@ -66,7 +81,12 @@ export class ConfigurationManager {
             enableAutoAnalysis: config.get<boolean>('enableAutoAnalysis', DEFAULT_CONFIG.enableAutoAnalysis),
             analyzerTimeout: this.getValidatedTimeout(config),
             skipBinaryVerification: config.get<boolean>('skipBinaryVerification', DEFAULT_CONFIG.skipBinaryVerification),
-            verboseLogging: config.get<boolean>('verboseLogging', DEFAULT_CONFIG.verboseLogging)
+            verboseLogging: config.get<boolean>('verboseLogging', DEFAULT_CONFIG.verboseLogging),
+            baseStyleFiles: config.get<string[]>('baseStyleFiles', DEFAULT_CONFIG.baseStyleFiles),
+            componentMappingYaml: config.get<string>('componentMappingYaml', DEFAULT_CONFIG.componentMappingYaml),
+            similarityThreshold: this.getValidatedSimilarityThreshold(config),
+            enableSimilarityScanning: config.get<boolean>('enableSimilarityScanning', DEFAULT_CONFIG.enableSimilarityScanning),
+            enableComponentSuggestions: config.get<boolean>('enableComponentSuggestions', DEFAULT_CONFIG.enableComponentSuggestions)
         };
     }
 
@@ -140,17 +160,17 @@ export class ConfigurationManager {
     /**
      * Gets and validates the AI provider setting
      */
-    private static getValidatedProvider(config: vscode.WorkspaceConfiguration): 'openai' | 'internal' {
+    private static getValidatedProvider(config: vscode.WorkspaceConfiguration): 'openai' | 'anthropic' | 'internal' {
         const provider = config.get<string>('aiProvider', DEFAULT_CONFIG.aiProvider);
         
-        if (provider !== 'openai' && provider !== 'internal') {
+        if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'internal') {
             vscode.window.showWarningMessage(
                 `Invalid AI provider "${provider}". Using default: ${DEFAULT_CONFIG.aiProvider}`
             );
             return DEFAULT_CONFIG.aiProvider;
         }
         
-        return provider;
+        return provider as 'openai' | 'anthropic' | 'internal';
     }
 
     /**
@@ -185,6 +205,23 @@ export class ConfigurationManager {
         }
         
         return timeout;
+    }
+
+    /**
+     * Gets and validates the similarity threshold setting
+     */
+    private static getValidatedSimilarityThreshold(config: vscode.WorkspaceConfiguration): number {
+        const threshold = config.get<number>('similarityThreshold', DEFAULT_CONFIG.similarityThreshold);
+        const { min, max } = VALIDATION_RULES.similarityThreshold;
+        
+        if (typeof threshold !== 'number' || isNaN(threshold) || threshold < min || threshold > max) {
+            vscode.window.showWarningMessage(
+                `Invalid similarity threshold "${threshold}". Using default: ${DEFAULT_CONFIG.similarityThreshold}`
+            );
+            return DEFAULT_CONFIG.similarityThreshold;
+        }
+        
+        return threshold;
     }
 
     /**
@@ -260,6 +297,215 @@ export class ConfigurationManager {
             errors.push(VALIDATION_RULES.aiProvider.message);
         }
 
+        // Validate similarity threshold
+        const threshold = config.get<number>('similarityThreshold');
+        if (threshold !== undefined) {
+            const { min, max } = VALIDATION_RULES.similarityThreshold;
+            if (typeof threshold !== 'number' || isNaN(threshold) || threshold < min || threshold > max) {
+                errors.push(VALIDATION_RULES.similarityThreshold.message);
+            }
+        }
+
         return errors;
+    }
+
+    /**
+     * Validates base style file paths exist
+     * @returns Array of validation errors
+     */
+    static async validateBaseStyleFiles(): Promise<string[]> {
+        const errors: string[] = [];
+        const baseStyleFiles = this.get('baseStyleFiles');
+        const fs = require('fs').promises;
+        const path = require('path');
+
+        if (!baseStyleFiles || baseStyleFiles.length === 0) {
+            return errors; // Empty array is valid
+        }
+
+        for (const filePath of baseStyleFiles) {
+            if (!filePath || filePath.trim() === '') {
+                errors.push('Base style files array contains empty path');
+                continue;
+            }
+
+            // Resolve relative paths from workspace root
+            let absolutePath = filePath;
+            if (!path.isAbsolute(filePath)) {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders && workspaceFolders.length > 0) {
+                    absolutePath = path.join(workspaceFolders[0].uri.fsPath, filePath);
+                }
+            }
+
+            try {
+                await fs.access(absolutePath);
+                
+                // Validate file extension
+                const ext = path.extname(absolutePath).toLowerCase();
+                if (!['.css', '.scss', '.sass', '.less'].includes(ext)) {
+                    errors.push(`Base style file "${filePath}" has invalid extension. Expected .css, .scss, .sass, or .less`);
+                }
+            } catch (error) {
+                errors.push(`Base style file not found: ${filePath}`);
+            }
+        }
+
+        return errors;
+    }
+
+    /**
+     * Validates component mapping YAML file path and content
+     * @returns Array of validation errors
+     */
+    static async validateComponentMappingYaml(): Promise<string[]> {
+        const errors: string[] = [];
+        const yamlPath = this.get('componentMappingYaml');
+        
+        if (!yamlPath || yamlPath.trim() === '') {
+            return errors; // Empty path is valid (feature disabled)
+        }
+
+        const fs = require('fs').promises;
+        const path = require('path');
+
+        // Resolve relative paths from workspace root
+        let absolutePath = yamlPath;
+        if (!path.isAbsolute(yamlPath)) {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                absolutePath = path.join(workspaceFolders[0].uri.fsPath, yamlPath);
+            }
+        }
+
+        try {
+            await fs.access(absolutePath);
+            
+            // Validate file extension
+            const ext = path.extname(absolutePath).toLowerCase();
+            if (!['.yaml', '.yml'].includes(ext)) {
+                errors.push(`Component mapping file "${yamlPath}" has invalid extension. Expected .yaml or .yml`);
+                return errors;
+            }
+
+            // Try to read and parse YAML content
+            try {
+                const content = await fs.readFile(absolutePath, 'utf8');
+                
+                // Basic YAML validation - check if it's not empty and has basic structure
+                if (!content || content.trim() === '') {
+                    errors.push(`Component mapping file "${yamlPath}" is empty`);
+                    return errors;
+                }
+
+                // Check for basic YAML structure (components key)
+                if (!content.includes('components:')) {
+                    errors.push(`Component mapping file "${yamlPath}" is missing required "components:" key`);
+                }
+            } catch (readError) {
+                errors.push(`Failed to read component mapping file "${yamlPath}": ${readError}`);
+            }
+        } catch (error) {
+            errors.push(`Component mapping file not found: ${yamlPath}`);
+        }
+
+        return errors;
+    }
+
+    /**
+     * Validates all file-based configuration options
+     * Shows warning messages for any validation errors
+     * @returns True if all validations pass, false otherwise
+     */
+    static async validateFileConfiguration(): Promise<boolean> {
+        const baseStyleErrors = await this.validateBaseStyleFiles();
+        const yamlErrors = await this.validateComponentMappingYaml();
+        
+        const allErrors = [...baseStyleErrors, ...yamlErrors];
+        
+        if (allErrors.length > 0) {
+            const errorMessage = allErrors.join('\n');
+            vscode.window.showWarningMessage(
+                `AI Frontend Optimizer Configuration Issues:\n${errorMessage}`,
+                'Open Settings'
+            ).then(selection => {
+                if (selection === 'Open Settings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'aiFrontendOptimizer');
+                }
+            });
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * Gets base style files with validation
+     * Returns only files that exist and are valid
+     */
+    static async getValidBaseStyleFiles(): Promise<string[]> {
+        const baseStyleFiles = this.get('baseStyleFiles');
+        if (!baseStyleFiles || baseStyleFiles.length === 0) {
+            return [];
+        }
+
+        const fs = require('fs').promises;
+        const path = require('path');
+        const validFiles: string[] = [];
+
+        for (const filePath of baseStyleFiles) {
+            if (!filePath || filePath.trim() === '') {
+                continue;
+            }
+
+            // Resolve relative paths from workspace root
+            let absolutePath = filePath;
+            if (!path.isAbsolute(filePath)) {
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders && workspaceFolders.length > 0) {
+                    absolutePath = path.join(workspaceFolders[0].uri.fsPath, filePath);
+                }
+            }
+
+            try {
+                await fs.access(absolutePath);
+                validFiles.push(absolutePath);
+            } catch (error) {
+                // Skip invalid files silently
+            }
+        }
+
+        return validFiles;
+    }
+
+    /**
+     * Gets component mapping YAML path with validation
+     * Returns null if path is invalid or file doesn't exist
+     */
+    static async getValidComponentMappingYaml(): Promise<string | null> {
+        const yamlPath = this.get('componentMappingYaml');
+        
+        if (!yamlPath || yamlPath.trim() === '') {
+            return null;
+        }
+
+        const fs = require('fs').promises;
+        const path = require('path');
+
+        // Resolve relative paths from workspace root
+        let absolutePath = yamlPath;
+        if (!path.isAbsolute(yamlPath)) {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                absolutePath = path.join(workspaceFolders[0].uri.fsPath, yamlPath);
+            }
+        }
+
+        try {
+            await fs.access(absolutePath);
+            return absolutePath;
+        } catch (error) {
+            return null;
+        }
     }
 }

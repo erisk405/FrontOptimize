@@ -17,6 +17,127 @@ export interface AnalysisContext {
     codeSnippets: Map<string, string>;
 }
 
+// Anthropic provider implementation
+export class AnthropicProvider implements AIProvider {
+    private apiKey: string;
+    private model: string;
+    private timeout: number;
+    private maxRetries: number;
+
+    constructor(apiKey: string, model: string = 'claude-3-5-sonnet-20241022', timeout: number = 45000, maxRetries: number = 3) {
+        this.apiKey = apiKey;
+        this.model = model;
+        this.timeout = timeout;
+        this.maxRetries = maxRetries;
+    }
+
+    async generateRecommendations(
+        prompt: string,
+        context: AnalysisContext,
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<string> {
+        return this.executeWithRetry(async () => {
+            // Check for cancellation before making request
+            if (cancellationToken?.isCancellationRequested) {
+                throw new Error('Request cancelled by user');
+            }
+
+            const response = await axios.post(
+                'https://api.anthropic.com/v1/messages',
+                {
+                    model: this.model,
+                    max_tokens: 2000,
+                    system: 'You are an expert frontend developer specializing in Angular optimization. Provide clear, actionable recommendations for code improvements.',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ]
+                },
+                {
+                    headers: {
+                        'x-api-key': this.apiKey,
+                        'Content-Type': 'application/json',
+                        'anthropic-version': '2023-06-01'
+                    },
+                    timeout: this.timeout,
+                    // Support cancellation via axios
+                    signal: cancellationToken ? this.createAbortSignal(cancellationToken) : undefined
+                }
+            );
+
+            // Handle Anthropic API response format
+            if (response.data.content && response.data.content.length > 0) {
+                return response.data.content[0].text;
+            } else if (response.data.completion) {
+                // Fallback for older API format
+                return response.data.completion;
+            } else {
+                throw new Error('Invalid response format from Anthropic API');
+            }
+        });
+    }
+
+    // Create an AbortSignal from VSCode CancellationToken
+    private createAbortSignal(cancellationToken: vscode.CancellationToken): AbortSignal {
+        const controller = new AbortController();
+        cancellationToken.onCancellationRequested(() => {
+            controller.abort();
+        });
+        return controller.signal;
+    }
+
+    // Execute request with exponential backoff retry
+    private async executeWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+        let lastError: Error | undefined;
+
+        for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+            try {
+                return await fn();
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                
+                // Don't retry on authentication errors
+                if (axios.isAxiosError(error) && error.response?.status === 401) {
+                    throw new Error('Invalid API key. Please check your Anthropic API key configuration.');
+                }
+
+                // Handle 404 errors specifically for Anthropic
+                if (axios.isAxiosError(error) && error.response?.status === 404) {
+                    console.error('Anthropic API 404 error. Response:', error.response.data);
+                    throw new Error('Anthropic API endpoint not found. Please check if your API key has access to the Claude models.');
+                }
+
+                // Don't retry on client errors (except rate limits)
+                if (axios.isAxiosError(error) && 
+                    error.response?.status && 
+                    error.response.status >= 400 && 
+                    error.response.status < 500 &&
+                    error.response.status !== 429) {
+                    throw lastError;
+                }
+
+                // If this is the last attempt, throw the error
+                if (attempt === this.maxRetries - 1) {
+                    break;
+                }
+
+                // Calculate exponential backoff delay: 1s, 2s, 4s
+                const delay = Math.pow(2, attempt) * 1000;
+                console.log(`AI request failed (attempt ${attempt + 1}/${this.maxRetries}), retrying in ${delay}ms...`);
+                await this.sleep(delay);
+            }
+        }
+
+        throw lastError || new Error('AI request failed after maximum retries');
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
 // OpenAI provider implementation
 export class OpenAIProvider implements AIProvider {
     private apiKey: string;
@@ -24,7 +145,7 @@ export class OpenAIProvider implements AIProvider {
     private timeout: number;
     private maxRetries: number;
 
-    constructor(apiKey: string, model: string = 'gpt-4', timeout: number = 15000, maxRetries: number = 3) {
+    constructor(apiKey: string, model: string = 'gpt-4', timeout: number = 45000, maxRetries: number = 3) {
         this.apiKey = apiKey;
         this.model = model;
         this.timeout = timeout;
@@ -155,9 +276,15 @@ export class AIService {
             throw new Error('API key not configured. Please set your API key in settings.');
         }
 
+        // Get timeout from configuration (in seconds, convert to milliseconds)
+        const timeoutSeconds = ConfigurationManager.get('analyzerTimeout');
+        const timeoutMs = timeoutSeconds * 1000;
+
         // Create provider based on configuration
         if (providerType === 'openai') {
-            this.provider = new OpenAIProvider(apiKey, model);
+            this.provider = new OpenAIProvider(apiKey, model, timeoutMs);
+        } else if (providerType === 'anthropic') {
+            this.provider = new AnthropicProvider(apiKey, model, timeoutMs);
         } else {
             throw new Error(`Unsupported AI provider: ${providerType}`);
         }
@@ -193,10 +320,14 @@ export class AIService {
 
     // Prompt user for API key if not configured
     async promptForApiKey(): Promise<boolean> {
+        const providerType = ConfigurationManager.get('aiProvider');
+        const providerName = providerType === 'anthropic' ? 'Anthropic' : 'OpenAI';
+        const placeholder = providerType === 'anthropic' ? 'sk-ant-...' : 'sk-...';
+        
         const apiKey = await vscode.window.showInputBox({
-            prompt: 'Enter your OpenAI API key',
+            prompt: `Enter your ${providerName} API key`,
             password: true,
-            placeHolder: 'sk-...',
+            placeHolder: placeholder,
             ignoreFocusOut: true
         });
 

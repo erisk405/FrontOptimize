@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { ComponentFiles, AnalyzerResult } from '../types';
+import { ComponentFiles, AnalyzerResult, BaseStyleComparisonResult } from '../types';
 import { verifyBinary, shouldSkipVerification } from '../utils/binaryVerification';
 import { getLogger } from '../utils/logger';
 import { ConfigurationManager } from '../utils/config';
@@ -78,13 +78,17 @@ export class RustAnalyzerRunner {
      * @param timeout Timeout in seconds (default: 30)
      * @param cancellationToken Optional cancellation token to abort the analysis
      * @param progressCallback Optional callback for progress updates
+     * @param baseStyleFiles Optional array of base style file paths for similarity comparison
+     * @param componentMappingYaml Optional path to YAML file for component mapping
      * @returns Parsed analysis results
      */
     async analyze(
         componentFiles: ComponentFiles,
         timeout: number = 30,
         cancellationToken?: vscode.CancellationToken,
-        progressCallback?: (message: string) => void
+        progressCallback?: (message: string) => void,
+        baseStyleFiles?: string[],
+        componentMappingYaml?: string
     ): Promise<AnalyzerResult> {
         const logger = getLogger();
         logger.info('Starting Rust analyzer', { 
@@ -135,6 +139,18 @@ export class RustAnalyzerRunner {
 
         if (componentFiles.css) {
             args.push('--css', componentFiles.css);
+        }
+
+        // Add base style files if provided
+        if (baseStyleFiles && baseStyleFiles.length > 0) {
+            args.push('--base-styles', baseStyleFiles.join(','));
+            logger.debug('Including base style files for similarity analysis', { baseStyleFiles });
+        }
+
+        // Add component mapping YAML if provided
+        if (componentMappingYaml) {
+            args.push('--component-mapping-yaml', componentMappingYaml);
+            logger.debug('Including component mapping YAML', { componentMappingYaml });
         }
 
         logger.debug('Executing analyzer with arguments', { args, maxNestingDepth });
@@ -350,6 +366,150 @@ export class RustAnalyzerRunner {
         }
 
         return `${fileType} parsing error${location}. ${suggestion}\n\nDetails: ${stderr.trim()}`;
+    }
+
+    /**
+     * Compare multiple base style files to find duplicates and similar classes
+     * @param baseStyleFiles Array of file paths to compare
+     * @param similarityThreshold Similarity threshold percentage (default: 80)
+     * @param timeout Timeout in seconds (default: 30)
+     * @param cancellationToken Optional cancellation token
+     * @returns Base style comparison results
+     */
+    async compareBaseStyles(
+        baseStyleFiles: string[],
+        similarityThreshold: number = 80,
+        timeout: number = 30,
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<BaseStyleComparisonResult> {
+        const logger = getLogger();
+        logger.info('Starting base style comparison', { 
+            files: baseStyleFiles,
+            similarityThreshold,
+            timeout
+        });
+
+        if (baseStyleFiles.length < 2) {
+            throw new Error('At least 2 files are required for comparison');
+        }
+
+        // Verify binary exists and is valid
+        const skipVerification = shouldSkipVerification();
+        const verificationResult = await verifyBinary(this.binaryPath, skipVerification);
+        
+        if (!verificationResult.exists) {
+            logger.error('Binary not found', { path: this.binaryPath });
+            throw new Error(
+                `Rust analyzer binary not found at: ${this.binaryPath}. ` +
+                'Please reinstall the extension or check the setup instructions.'
+            );
+        }
+
+        if (!verificationResult.valid) {
+            logger.error('Binary verification failed', verificationResult.error);
+            throw new Error(
+                `Rust analyzer binary verification failed: ${verificationResult.error}. ` +
+                'The binary may be corrupted. Please reinstall the extension.'
+            );
+        }
+
+        // Build command arguments
+        const args: string[] = [
+            '--compare-base-styles', baseStyleFiles.join(','),
+            '--similarity-threshold', similarityThreshold.toString()
+        ];
+
+        logger.debug('Executing base style comparison', { args });
+
+        // Execute the analyzer
+        return new Promise((resolve, reject) => {
+            let stdout = '';
+            let stderr = '';
+            let childProcess: ReturnType<typeof spawn> | null = null;
+
+            // Check for cancellation before starting
+            if (cancellationToken?.isCancellationRequested) {
+                logger.info('Comparison cancelled before spawning process');
+                reject(new Error('Comparison cancelled by user'));
+                return;
+            }
+
+            logger.debug('Spawning analyzer process for comparison');
+            childProcess = spawn(this.binaryPath, args);
+
+            // Set timeout
+            const timeoutId = setTimeout(() => {
+                if (childProcess) {
+                    childProcess.kill();
+                }
+                reject(new Error(`Comparison timed out after ${timeout} seconds`));
+            }, timeout * 1000);
+
+            // Handle cancellation
+            const cancellationListener = cancellationToken?.onCancellationRequested(() => {
+                if (childProcess) {
+                    childProcess.kill();
+                    clearTimeout(timeoutId);
+                    reject(new Error('Comparison cancelled by user'));
+                }
+            });
+
+            // Collect stdout
+            childProcess.stdout?.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            // Collect stderr
+            childProcess.stderr?.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            // Handle process completion
+            childProcess.on('close', (code) => {
+                clearTimeout(timeoutId);
+                if (cancellationListener) {
+                    cancellationListener.dispose();
+                }
+
+                logger.debug('Comparison process closed', { exitCode: code });
+
+                if (code !== 0 && code !== null) {
+                    logger.error('Comparison exited with non-zero code', { code, stderr });
+                    reject(new Error(`Comparison failed: ${stderr || 'Unknown error'}`));
+                    return;
+                }
+
+                if (code === null) {
+                    logger.error('Comparison process terminated abnormally', { stderr });
+                    reject(new Error('Comparison process terminated abnormally'));
+                    return;
+                }
+
+                try {
+                    logger.debug('Parsing comparison output', { outputLength: stdout.length });
+                    const result = JSON.parse(stdout) as BaseStyleComparisonResult;
+                    logger.info('Comparison output parsed successfully', {
+                        duplicates: result.baseStyleComparison.duplicates.length,
+                        similarClasses: result.baseStyleComparison.similarClasses.length
+                    });
+                    resolve(result);
+                } catch (error) {
+                    logger.error('Failed to parse comparison output', error);
+                    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                    reject(new Error(`Failed to parse comparison output: ${errorMsg}`));
+                }
+            });
+
+            // Handle process errors
+            childProcess.on('error', (error) => {
+                clearTimeout(timeoutId);
+                if (cancellationListener) {
+                    cancellationListener.dispose();
+                }
+                logger.error('Comparison process error', error);
+                reject(new Error(`Failed to execute comparison: ${error.message}`));
+            });
+        });
     }
 
     /**

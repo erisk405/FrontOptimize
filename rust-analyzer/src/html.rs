@@ -1,6 +1,6 @@
-use scraper::{Html, Selector};
+use scraper::{Html, Selector, ElementRef};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +25,23 @@ pub enum Severity {
     High,
     Medium,
     Low,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeElement {
+    pub tag_name: String,
+    pub line: usize,
+    pub attributes: HashMap<String, String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentSuggestion {
+    pub native_element: String,
+    pub line: usize,
+    pub suggested_component: String,
+    pub reason: String,
 }
 
 pub struct HtmlAnalyzer {
@@ -295,5 +312,127 @@ impl HtmlAnalyzer {
         }
         
         issues
+    }
+
+    /// Extract all native HTML elements from the template
+    /// Filters out elements that are already design system components (contain hyphens)
+    pub fn extract_native_elements(&self) -> Vec<NativeElement> {
+        let mut native_elements = Vec::new();
+        
+        // List of native HTML elements we want to track
+        let native_tags = [
+            "button", "input", "select", "textarea", "a", "form",
+            "table", "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+            "ul", "ol", "li", "img", "video", "audio", "canvas",
+        ];
+        
+        // Create selectors for each native tag
+        for tag in &native_tags {
+            if let Ok(selector) = Selector::parse(tag) {
+                for element in self.document.select(&selector) {
+                    let tag_name = element.value().name();
+                    
+                    // Skip if this looks like a custom component (contains hyphen)
+                    if tag_name.contains('-') {
+                        continue;
+                    }
+                    
+                    // Extract attributes
+                    let mut attributes = HashMap::new();
+                    for (attr_name, attr_value) in element.value().attrs() {
+                        attributes.insert(attr_name.to_string(), attr_value.to_string());
+                    }
+                    
+                    // Try to determine line number
+                    let line = self.find_element_line(&element);
+                    
+                    native_elements.push(NativeElement {
+                        tag_name: tag_name.to_string(),
+                        line,
+                        attributes,
+                    });
+                }
+            }
+        }
+        
+        native_elements
+    }
+
+    /// Helper method to find the approximate line number of an element
+    /// This is a best-effort approach since scraper doesn't preserve exact positions
+    fn find_element_line(&self, element: &ElementRef) -> usize {
+        let tag_name = element.value().name();
+        let mut line_num = 1;
+        
+        // Try to find the element in the source by matching tag and attributes
+        for (idx, line) in self.content.lines().enumerate() {
+            // Simple heuristic: check if line contains opening tag
+            if line.contains(&format!("<{}", tag_name)) {
+                // Try to match attributes if present
+                let has_matching_attrs = if let Some(id) = element.value().attr("id") {
+                    line.contains(&format!("id=\"{}\"", id)) || line.contains(&format!("id='{}'", id))
+                } else if let Some(class) = element.value().attr("class") {
+                    line.contains(&format!("class=\"{}\"", class)) || line.contains(&format!("class='{}'", class))
+                } else {
+                    true // No specific attributes to match
+                };
+                
+                if has_matching_attrs {
+                    line_num = idx + 1;
+                    break;
+                }
+            }
+        }
+        
+        line_num
+    }
+
+    /// Generate component suggestions based on native elements and component mapping
+    pub fn suggest_components(&self, component_mapping: &crate::yaml_config::ComponentMapping) -> Vec<ComponentSuggestion> {
+        let mut suggestions = Vec::new();
+        let native_elements = self.extract_native_elements();
+        
+        // Track which elements we've already suggested to avoid duplicates
+        let mut suggested_elements: HashSet<(String, usize)> = HashSet::new();
+        
+        for element in native_elements {
+            let element_key = (element.tag_name.clone(), element.line);
+            
+            // Skip if we've already suggested this element at this line
+            if suggested_elements.contains(&element_key) {
+                continue;
+            }
+            
+            // Find all matching components with priority
+            let matches = component_mapping.find_all_matching_components(&element.tag_name);
+            
+            if !matches.is_empty() {
+                // Use the highest priority match
+                let (component_name, definition, _priority) = matches[0];
+                
+                // Build a descriptive reason
+                let reason = if let Some(desc) = &definition.description {
+                    format!("Found native <{}> element. Consider using {} component: {}", 
+                        element.tag_name, component_name, desc)
+                } else {
+                    format!("Found native <{}> element. Consider using {} component from the design system", 
+                        element.tag_name, component_name)
+                };
+                
+                suggestions.push(ComponentSuggestion {
+                    native_element: element.tag_name.clone(),
+                    line: element.line,
+                    suggested_component: component_name.clone(),
+                    reason,
+                });
+                
+                suggested_elements.insert(element_key);
+            }
+        }
+        
+        // Sort suggestions by line number
+        suggestions.sort_by_key(|s| s.line);
+        
+        suggestions
     }
 }

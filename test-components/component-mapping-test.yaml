@@ -1,0 +1,10 @@
+components:
+  go5-button:
+    selector: go5-button
+    keywords: ["button", "btn"]
+    description: "Test button component"
+  
+  go5-input:
+    selector: go5-input
+    keywords: ["input", "textbox"]
+    description: "Test input component"

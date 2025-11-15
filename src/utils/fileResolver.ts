@@ -199,3 +199,40 @@ export function getComponentName(filePath: string): string {
     const match = fileName.match(/^(.+)\.component\.(ts|html|css)$/);
     return match ? match[1] : fileName;
 }
+
+/**
+ * Recursively finds all Angular component files in a folder
+ * @param folderUri The URI of the folder to search
+ * @returns Array of component file URIs (.component.ts files)
+ */
+export async function findComponentsInFolder(folderUri: vscode.Uri): Promise<vscode.Uri[]> {
+    const componentFiles: vscode.Uri[] = [];
+    
+    async function searchDirectory(dirUri: vscode.Uri): Promise<void> {
+        try {
+            const entries = await vscode.workspace.fs.readDirectory(dirUri);
+            
+            for (const [name, type] of entries) {
+                const entryUri = vscode.Uri.joinPath(dirUri, name);
+                
+                if (type === vscode.FileType.Directory) {
+                    // Skip node_modules and other common directories
+                    if (!name.startsWith('.') && name !== 'node_modules' && name !== 'dist' && name !== 'out') {
+                        await searchDirectory(entryUri);
+                    }
+                } else if (type === vscode.FileType.File) {
+                    // Check if it's a component TypeScript file
+                    if (name.endsWith('.component.ts')) {
+                        componentFiles.push(entryUri);
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently skip directories we can't read
+            console.error(`Failed to read directory ${dirUri.fsPath}:`, error);
+        }
+    }
+    
+    await searchDirectory(folderUri);
+    return componentFiles;
+}

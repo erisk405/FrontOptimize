@@ -363,3 +363,305 @@
     - Test extension on Linux
     - Verify binary execution on all platforms
     - _Requirements: 7.1, 8.3_
+
+- [x] 14. Implement CSS similarity detection system
+
+
+
+
+
+  - [x] 14.1 Create CSS class extraction and property parsing
+
+
+    - Implement CssClass struct with property HashMap in css.rs
+    - Create extract_classes() method to parse all CSS classes from a file
+    - Extract property-value pairs for each class with line number tracking
+    - Handle SCSS variables and nested selectors appropriately
+    - _Requirements: 9.2_
+
+  - [x] 14.2 Implement similarity calculation algorithm
+
+
+    - Create calculate_similarity() function using Jaccard index
+    - Compare property keys and values between local and base classes
+    - Return similarity percentage (0-100)
+    - Optimize for performance with large stylesheets
+    - _Requirements: 9.4_
+
+  - [x] 14.3 Build base style comparison logic
+
+
+    - Implement compare_with_base_styles() method in CssAnalyzer
+    - Load and parse multiple base style files
+    - Compare each local class against all base classes
+    - Identify best match with highest similarity score
+    - Generate SimilarityResult structs with matching, differing, and redundant properties
+    - _Requirements: 9.3, 9.5, 9.6_
+
+  - [x] 14.4 Add file picker UI for base style selection
+
+
+    - Implement file picker dialog in Extension for selecting base style files
+    - Support multi-select for choosing multiple reference files
+    - Store selected base style files in workspace configuration
+    - Pass base style file paths to Rust analyzer
+    - _Requirements: 9.1_
+
+  - [x] 14.5 Integrate similarity results into results panel
+
+
+    - Add new "Similarity Analysis" tab in webview panel
+    - Display similarity percentage with visual indicators (progress bars)
+    - Show matching properties in green, differing in yellow, redundant in red
+    - Generate AI recommendations for replacing local classes with design system classes
+    - Add "Go to Base Class" button to navigate to base style file
+    - _Requirements: 9.7, 9.8_
+
+
+- [x] 15. Implement design system component suggestion
+
+
+
+
+  - [x] 15.1 Create YAML parser for component mapping
+
+
+    - Add serde_yaml dependency to Rust project
+    - Create yaml_config.rs module with ComponentMapping and ComponentDefinition structs
+    - Implement from_file() method to load YAML configuration
+    - Add error handling for malformed YAML files
+    - _Requirements: 10.1, 10.2_
+
+  - [x] 15.2 Implement native element extraction from HTML
+
+
+    - Create extract_native_elements() method in HtmlAnalyzer
+    - Identify all native HTML elements (button, input, select, textarea, etc.)
+    - Extract element attributes and line numbers
+    - Filter out elements that are already design system components
+    - _Requirements: 10.3_
+
+  - [x] 15.3 Build component matching logic
+
+
+    - Implement find_matching_component() method in ComponentMapping
+    - Match native element tag names against component keywords
+    - Generate ComponentSuggestion structs with suggested component and reason
+    - Handle multiple keyword matches with priority ranking
+    - _Requirements: 10.4, 10.5_
+
+  - [x] 15.4 Add YAML configuration setting
+
+
+    - Add componentMappingYaml setting to VSCode configuration
+    - Implement file path validation for YAML file
+    - Create sample YAML file with common GoFive components
+    - Load YAML configuration when analysis is triggered
+    - _Requirements: 10.1, 10.6_
+
+  - [x] 15.5 Display component suggestions in results panel
+
+
+    - Add "Component Suggestions" section in webview panel
+    - Show native element with line number and suggested component
+    - Display before/after code examples
+    - Add "Go to Element" button to navigate to HTML template
+    - Generate AI recommendations explaining benefits of using design system components
+    - _Requirements: 10.7_
+-
+
+- [x] 16. Implement multi-file base style comparison
+
+
+
+
+  - [x] 16.1 Create multi-file CSS loading and parsing
+
+
+    - Implement compare_multiple_base_files() function in css.rs
+    - Load and parse multiple CSS/SCSS files simultaneously
+    - Track file origin for each extracted class
+    - Handle parsing errors gracefully for individual files
+    - _Requirements: 11.2_
+
+
+  - [x] 16.2 Implement duplicate class detection
+
+
+    - Compare class names across all loaded base files
+    - Identify classes with identical names in different files
+    - Generate duplicate reports with file locations
+    - _Requirements: 11.3_
+
+
+
+
+  - [ ] 16.3 Implement cross-file similarity detection
+    - Compare all classes from one file against classes in other files
+    - Calculate similarity scores for classes with different names
+    - Filter results to show only similarities above threshold (default 80%)
+    - Generate BaseStyleComparison struct with duplicates and similar classes
+
+    - _Requirements: 11.4, 11.5, 11.6_
+
+  - [x] 16.4 Add multi-file comparison UI
+
+    - Create command "AI Frontend Optimizer: Compare Base Styles"
+    - Implement multi-select file picker for base style files
+    - Display comparison results in dedicated panel view
+    - Organize results by file with expandable sections
+    - Show similarity percentages and property comparisons
+    - _Requirements: 11.1, 11.7_
+
+- [x] 17. Implement selective file and folder scanning
+
+
+
+
+
+
+
+
+  - [x] 17.1 Add context menu for file scanning
+
+    - Register context menu command for .ts, .html, .css files
+    - Implement executeOptimize() to handle single file analysis
+    - Ensure existing single-file analysis continues to work
+
+    - _Requirements: 12.1_
+
+  - [x] 17.2 Add context menu for folder scanning
+
+    - Register context menu command for folders in explorer
+    - Implement executeOptimizeFolder() to recursively find Angular components
+    - Search for .component.ts files within folder and subfolders
+    - Group related component files (.ts, .html, .css) together
+    - _Requirements: 12.2, 12.3_
+
+  - [x] 17.3 Implement component selection UI
+
+
+    - Create quick pick menu with checkboxes for discovered components
+    - Display component names with file paths
+    - Allow select all / deselect all options
+    - Store selected components for batch analysis
+    - _Requirements: 12.4_
+
+  - [x] 17.4 Add command palette scan selection option
+
+
+    - Register "AI Frontend Optimizer: Scan Selection" command
+    - Get currently selected files from VSCode explorer
+    - Filter for Angular component files only
+    - Trigger analysis for selected files
+    - _Requirements: 12.6_
+
+  - [x] 17.5 Implement batch analysis with progress tracking
+
+
+    - Process multiple components sequentially
+    - Display progress notification with current file and count (e.g., "Analyzing 3/10")
+    - Aggregate results from all analyzed components
+    - Show combined results in panel with file grouping
+    - Allow cancellation during batch processing
+    - _Requirements: 12.5, 12.7_
+
+- [x] 18. Update configuration and settings
+
+
+
+
+
+
+
+  - [x] 18.1 Add new configuration options
+
+    - Add baseStyleFiles array setting for default base style files
+    - Add componentMappingYaml string setting for YAML config path
+    - Add similarityThreshold number setting (default 80)
+    - Add enableSimilarityScanning boolean setting
+    - Add enableComponentSuggestions boolean setting
+    - Update package.json with new configuration schema
+    - _Requirements: 9.1, 10.1, 11.1_
+
+
+
+  - [x] 18.2 Implement configuration validation
+
+
+
+
+
+    - Validate base style file paths exist
+    - Validate YAML file path exists and is valid YAML
+    - Validate similarity threshold is between 0-100
+    - Show warning messages for invalid configurations
+    - _Requirements: 9.1, 10.1_
+
+- [x] 19. Extend results panel for new features
+
+
+
+
+
+
+  - [x] 19.1 Add new tabs for similarity and component suggestions
+
+
+    - Create "Similarity Analysis" tab in webview
+    - Create "Component Suggestions" tab in webview
+    - Create "Base Style Comparison" tab for multi-file comparison
+    - Maintain existing tabs for CSS, TypeScript, and Template issues
+    - _Requirements: 9.8, 10.7, 11.7_
+
+  - [x] 19.2 Implement visual similarity indicators
+
+
+    - Add progress bars or percentage badges for similarity scores
+    - Use color coding (green for high similarity, yellow for medium, red for low)
+    - Display property comparison tables with color-coded differences
+    - Add icons for matching, differing, and redundant properties
+    - _Requirements: 9.8_
+
+
+  - [x] 19.3 Add navigation features for new results
+
+    - Implement "Go to Base Class" button to open base style file at class location
+    - Implement "Go to Element" button for component suggestions
+    - Add "Compare Files" button for base style comparison results
+    - _Requirements: 9.8, 10.7, 11.7_
+
+- [ ]* 20. Testing for new features
+
+  - [ ]* 20.1 Create test data for similarity detection
+    - Create sample CSS files with similar classes
+    - Create base style files with design system classes
+    - Create test cases with varying similarity percentages
+    - _Requirements: 9.1-9.8_
+
+  - [ ]* 20.2 Create test data for component suggestions
+    - Create sample YAML component mapping file
+    - Create HTML templates with native elements
+    - Create test cases with various element types
+    - _Requirements: 10.1-10.7_
+
+  - [ ]* 20.3 Test multi-file comparison
+    - Create multiple base style files with duplicates
+    - Create files with similar classes
+    - Test comparison with 2, 3, and 5+ files
+    - _Requirements: 11.1-11.7_
+
+  - [ ]* 20.4 Test selective scanning
+    - Test single file scanning
+    - Test folder scanning with nested components
+    - Test selection scanning with multiple files
+    - Test batch analysis with progress tracking
+    - _Requirements: 12.1-12.7_
+
+  - [ ]* 20.5 Integration testing for new features
+    - Test end-to-end similarity detection workflow
+    - Test end-to-end component suggestion workflow
+    - Test end-to-end multi-file comparison workflow
+    - Test end-to-end selective scanning workflow
+    - Verify all new features work together
+    - _Requirements: 9.1-12.7_

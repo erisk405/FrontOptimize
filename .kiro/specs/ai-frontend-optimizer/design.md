@@ -72,15 +72,20 @@ function deactivate(): void;
 ```
 
 #### commands/optimizeCommand.ts
-Handles the "AI Optimize this file" command.
+Handles the "AI Optimize this file" command and new scanning commands.
 
 ```typescript
 interface OptimizeCommandOptions {
   filePath: string;
   showProgress: boolean;
+  baseStyleFiles?: string[];
+  componentMappingYaml?: string;
+  scanMode?: 'single' | 'folder' | 'selection';
 }
 
 async function executeOptimize(options: OptimizeCommandOptions): Promise<void>;
+async function executeOptimizeFolder(folderPath: string): Promise<void>;
+async function executeOptimizeSelection(selectedFiles: string[]): Promise<void>;
 ```
 
 #### rust-runner.ts
@@ -91,12 +96,46 @@ interface AnalyzerResult {
   cssIssues: CssIssue[];
   tsIssues: TypeScriptIssue[];
   templateIssues: TemplateIssue[];
+  similarityResults?: SimilarityResult[];
+  componentSuggestions?: ComponentSuggestion[];
+  baseStyleComparison?: BaseStyleComparison;
   metadata: AnalysisMetadata;
+}
+
+interface SimilarityResult {
+  localClass: string;
+  bestMatch: {
+    baseClass: string;
+    baseFile: string;
+    similarityPercent: number;
+  };
+  matchingProperties: string[];
+  differingProperties: Array<{property: string, localValue: string, baseValue: string}>;
+  redundantProperties: string[];
+}
+
+interface ComponentSuggestion {
+  nativeElement: string;
+  line: number;
+  suggestedComponent: string;
+  reason: string;
+}
+
+interface BaseStyleComparison {
+  duplicates: Array<{className: string, files: string[]}>;
+  similarClasses: Array<{
+    class1: {name: string, file: string},
+    class2: {name: string, file: string},
+    similarityPercent: number
+  }>;
 }
 
 class RustAnalyzerRunner {
   constructor(binaryPath: string);
-  async analyze(componentFiles: ComponentFiles): Promise<AnalyzerResult>;
+  async analyze(componentFiles: ComponentFiles, options?: AnalysisOptions): Promise<AnalyzerResult>;
+  async analyzeSimilarity(cssFile: string, baseStyleFiles: string[]): Promise<SimilarityResult[]>;
+  async analyzeWithComponentMapping(htmlFile: string, yamlConfigPath: string): Promise<ComponentSuggestion[]>;
+  async compareBaseStyles(baseStyleFiles: string[]): Promise<BaseStyleComparison>;
   async checkBinaryExists(): Promise<boolean>;
 }
 ```
@@ -170,6 +209,7 @@ CSS analysis module using lightningcss or cssparser.
 ```rust
 pub struct CssAnalyzer {
     stylesheet: Stylesheet,
+    file_path: PathBuf,
 }
 
 pub struct CssIssue {
@@ -186,11 +226,43 @@ pub enum CssIssueType {
     RedundantSelector,
 }
 
+pub struct CssClass {
+    pub name: String,
+    pub properties: HashMap<String, String>,
+    pub line: usize,
+    pub file: PathBuf,
+}
+
+pub struct SimilarityResult {
+    pub local_class: String,
+    pub best_match: BestMatch,
+    pub matching_properties: Vec<String>,
+    pub differing_properties: Vec<PropertyDiff>,
+    pub redundant_properties: Vec<String>,
+}
+
+pub struct BestMatch {
+    pub base_class: String,
+    pub base_file: String,
+    pub similarity_percent: f32,
+}
+
+pub struct PropertyDiff {
+    pub property: String,
+    pub local_value: String,
+    pub base_value: String,
+}
+
 impl CssAnalyzer {
-    pub fn new(css_content: &str) -> Result<Self, ParseError>;
+    pub fn new(css_content: &str, file_path: PathBuf) -> Result<Self, ParseError>;
     pub fn find_unused_selectors(&self, html_classes: &HashSet<String>) -> Vec<CssIssue>;
     pub fn find_duplicate_rules(&self) -> Vec<CssIssue>;
+    pub fn extract_classes(&self) -> Vec<CssClass>;
+    pub fn compare_with_base_styles(&self, base_classes: &[CssClass]) -> Vec<SimilarityResult>;
+    pub fn calculate_similarity(local: &CssClass, base: &CssClass) -> f32;
 }
+
+pub fn compare_multiple_base_files(base_files: &[PathBuf]) -> Result<BaseStyleComparison, Error>;
 ```
 
 #### ts.rs
@@ -224,6 +296,30 @@ impl TypeScriptAnalyzer {
 }
 ```
 
+#### yaml_config.rs
+YAML configuration parser for component mapping.
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ComponentMapping {
+    pub components: HashMap<String, ComponentDefinition>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ComponentDefinition {
+    pub selector: String,
+    pub keywords: Vec<String>,
+    pub description: Option<String>,
+}
+
+impl ComponentMapping {
+    pub fn from_file(path: &Path) -> Result<Self, Error>;
+    pub fn find_matching_component(&self, element_tag: &str) -> Option<&ComponentDefinition>;
+}
+```
+
 #### html.rs
 HTML template analysis using html5ever or scraper.
 
@@ -251,12 +347,27 @@ pub enum Severity {
     Low,
 }
 
+pub struct NativeElement {
+    pub tag_name: String,
+    pub line: usize,
+    pub attributes: HashMap<String, String>,
+}
+
+pub struct ComponentSuggestion {
+    pub native_element: String,
+    pub line: usize,
+    pub suggested_component: String,
+    pub reason: String,
+}
+
 impl HtmlAnalyzer {
     pub fn new(html_content: &str) -> Result<Self, ParseError>;
     pub fn extract_classes(&self) -> HashSet<String>;
     pub fn find_deep_nesting(&self, max_depth: usize) -> Vec<TemplateIssue>;
     pub fn find_heavy_pipes(&self) -> Vec<TemplateIssue>;
     pub fn find_redundant_wrappers(&self) -> Vec<TemplateIssue>;
+    pub fn extract_native_elements(&self) -> Vec<NativeElement>;
+    pub fn suggest_components(&self, component_mapping: &ComponentMapping) -> Vec<ComponentSuggestion>;
 }
 ```
 
@@ -351,6 +462,106 @@ class InternalModelProvider implements AIProvider {
     }
   ]
 }
+```
+
+### CSS Similarity Result Schema
+
+```json
+{
+  "similarityResults": [
+    {
+      "localClass": ".local-button",
+      "bestMatch": {
+        "baseClass": ".go5-button-primary",
+        "baseFile": "design-system/buttons.scss",
+        "similarityPercent": 92
+      },
+      "matchingProperties": [
+        "padding: 12px 24px",
+        "border-radius: 4px",
+        "font-weight: 600",
+        "line-height: 1.5"
+      ],
+      "differingProperties": [
+        {
+          "property": "background-color",
+          "localValue": "#eee",
+          "baseValue": "var(--go5-primary)"
+        }
+      ],
+      "redundantProperties": ["margin-top"]
+    }
+  ]
+}
+```
+
+### Component Suggestion Schema
+
+```json
+{
+  "componentSuggestions": [
+    {
+      "nativeElement": "button",
+      "line": 45,
+      "suggestedComponent": "go5-button",
+      "reason": "Found native <button> but design system has go5-button component"
+    },
+    {
+      "nativeElement": "input",
+      "line": 67,
+      "suggestedComponent": "go5-input",
+      "reason": "Found native <input> but design system has go5-input component"
+    }
+  ]
+}
+```
+
+### Base Style Comparison Schema
+
+```json
+{
+  "baseStyleComparison": {
+    "duplicates": [
+      {
+        "className": ".btn-primary",
+        "files": ["global.scss", "components/button.scss"]
+      }
+    ],
+    "similarClasses": [
+      {
+        "class1": {
+          "name": ".card-container",
+          "file": "global.scss"
+        },
+        "class2": {
+          "name": ".panel-wrapper",
+          "file": "theme.scss"
+        },
+        "similarityPercent": 85
+      }
+    ]
+  }
+}
+```
+
+### Component Mapping YAML Schema
+
+```yaml
+components:
+  go5-button:
+    selector: go5-button
+    keywords: ["button", "btn", "action"]
+    description: "Primary button component from GoFive design system"
+  
+  go5-input:
+    selector: go5-input
+    keywords: ["input", "textbox", "field"]
+    description: "Input field component from GoFive design system"
+  
+  go5-card:
+    selector: go5-card
+    keywords: ["card", "panel", "container"]
+    description: "Card container component from GoFive design system"
 ```
 
 ## Error Handling
@@ -482,7 +693,12 @@ Runtime binary selection based on `process.platform`.
   "aiFrontendOptimizer.model": "gpt-4",
   "aiFrontendOptimizer.maxNestingDepth": 2,
   "aiFrontendOptimizer.enableAutoAnalysis": false,
-  "aiFrontendOptimizer.analyzerTimeout": 30
+  "aiFrontendOptimizer.analyzerTimeout": 30,
+  "aiFrontendOptimizer.baseStyleFiles": [],
+  "aiFrontendOptimizer.componentMappingYaml": "",
+  "aiFrontendOptimizer.similarityThreshold": 80,
+  "aiFrontendOptimizer.enableSimilarityScanning": true,
+  "aiFrontendOptimizer.enableComponentSuggestions": true
 }
 ```
 
@@ -494,13 +710,83 @@ Runtime binary selection based on `process.platform`.
 4. **Sandboxing**: Rust analyzer runs as separate process with no network access
 5. **Data Privacy**: Option to disable AI features and use local analysis only
 
+## New Features Architecture
+
+### CSS Similarity Detection
+
+**Algorithm:** Cosine Similarity or Jaccard Index
+
+The similarity calculation compares CSS properties between local and base classes:
+
+```rust
+fn calculate_similarity(local: &CssClass, base: &CssClass) -> f32 {
+    let local_props: HashSet<_> = local.properties.keys().collect();
+    let base_props: HashSet<_> = base.properties.keys().collect();
+    
+    let intersection = local_props.intersection(&base_props).count();
+    let union = local_props.union(&base_props).count();
+    
+    // Jaccard similarity
+    (intersection as f32) / (union as f32) * 100.0
+}
+```
+
+**Workflow:**
+1. User selects base style files via file picker
+2. Analyzer extracts all classes from base files
+3. Analyzer compares component CSS against base classes
+4. Results show similarity percentage and property differences
+5. AI generates replacement suggestions
+
+### Component Mapping System
+
+**YAML-based Configuration:**
+
+Users provide a YAML file defining design system components and their keywords. The analyzer matches native HTML elements against these keywords.
+
+**Matching Logic:**
+```rust
+fn find_matching_component(element: &str, mapping: &ComponentMapping) -> Option<String> {
+    for (component_name, definition) in &mapping.components {
+        if definition.keywords.contains(&element.to_lowercase()) {
+            return Some(component_name.clone());
+        }
+    }
+    None
+}
+```
+
+### Multi-file Base Style Comparison
+
+**Purpose:** Identify redundancy within the design system itself
+
+**Process:**
+1. Load multiple base style files
+2. Extract all classes from each file
+3. Compare classes across files
+4. Report duplicates (same name, different files)
+5. Report similar classes (different names, similar properties)
+
+### Selective Scanning
+
+**UI Integration:**
+- Context menu on files: "AI Optimize this file"
+- Context menu on folders: "AI Optimize this folder"
+- Command palette: "AI Frontend Optimizer: Scan Selection"
+
+**Folder Scanning:**
+1. Recursively find all `.component.ts` files
+2. Show quick pick with checkboxes
+3. Analyze selected components in batch
+4. Show aggregated results
+
 ## Future Extensibility
 
 ### Planned Enhancements (Post-MVP)
 
 1. **Auto-fix Capability**: Apply recommended changes automatically
-2. **Batch Analysis**: Analyze multiple components in a workspace
-3. **Custom Rules**: Allow teams to define custom analysis rules
-4. **React/Vue Support**: Extend beyond Angular
-5. **Performance Metrics**: Track bundle size reduction over time
-6. **CI/CD Integration**: Command-line interface for automated checks
+2. **Custom Rules**: Allow teams to define custom analysis rules
+3. **React/Vue Support**: Extend beyond Angular
+4. **Performance Metrics**: Track bundle size reduction over time
+5. **CI/CD Integration**: Command-line interface for automated checks
+6. **Design System Validation**: Ensure all components follow design system guidelines

@@ -11,6 +11,11 @@ The AI Frontend Optimizer is a VSCode extension designed to help frontend develo
 - **Component**: An Angular component consisting of .ts, .html, and .css files
 - **Panel**: The VSCode webview panel that displays analysis results and recommendations
 - **AI Service**: The external AI API (OpenAI or internal model) that generates optimization recommendations
+- **Base Style File**: A CSS or SCSS file containing design system classes used as reference for comparison
+- **Similarity Score**: A percentage value representing how closely a local CSS class matches a base style class based on shared properties
+- **Design System Component**: A reusable UI component defined in the design system (e.g., go5-button, go5-input)
+- **Component Mapping**: A YAML configuration that maps native HTML elements to design system components using keywords
+- **Native Element**: A standard HTML element (e.g., button, input, div) not part of the design system
 
 ## Requirements
 
@@ -107,3 +112,60 @@ The AI Frontend Optimizer is a VSCode extension designed to help frontend develo
 3. IF the Rust Analyzer executable is not found, THEN THE Extension SHALL display installation instructions
 4. THE Extension SHALL log all errors to the VSCode output channel for debugging purposes
 5. WHEN an error occurs, THE Extension SHALL allow the developer to retry the analysis operation
+
+### Requirement 9: CSS Class Similarity Detection
+
+**User Story:** As a frontend developer, I want to compare CSS classes in my component against design system base styles, so that I can identify duplicate styles and use existing design system classes instead.
+
+#### Acceptance Criteria
+
+1. WHEN the developer initiates a similarity scan, THE Extension SHALL prompt the developer to select one or more base style files as reference
+2. WHEN base style files are selected, THE Analyzer SHALL extract all CSS class definitions and their properties from the base files
+3. WHEN the Analyzer processes the component CSS file, THE Analyzer SHALL compare each local class against all base style classes
+4. THE Analyzer SHALL calculate similarity percentage based on matching CSS properties between local and base classes
+5. THE Analyzer SHALL identify which properties match, which differ, and which are redundant in the local class
+6. THE Analyzer SHALL return a JSON report containing similarity scores, matching properties, differing properties, and redundant properties for each local class
+7. WHEN the AI Service receives the similarity report, THE AI Service SHALL generate recommendations to replace local classes with design system classes
+8. THE Panel SHALL display similarity results with percentage scores, property comparisons, and replacement suggestions
+
+### Requirement 10: Design System Component Suggestion
+
+**User Story:** As a frontend developer, I want the system to suggest design system components when I use native HTML elements, so that I can maintain consistency with the design system.
+
+#### Acceptance Criteria
+
+1. WHEN the developer configures the extension, THE Extension SHALL allow the developer to specify a YAML file path containing component mapping definitions
+2. WHEN the Analyzer receives the YAML configuration file, THE Analyzer SHALL parse the component definitions including selectors and keywords
+3. WHEN the Analyzer processes an HTML template, THE Analyzer SHALL identify all native HTML elements and their attributes
+4. THE Analyzer SHALL match native elements against component keywords defined in the YAML configuration
+5. WHEN a native element matches a component keyword, THE Analyzer SHALL generate a suggestion to replace the native element with the design system component
+6. THE Analyzer SHALL return a JSON report containing matched elements, suggested components, and line numbers
+7. THE Panel SHALL display component suggestions with before/after code examples showing the native element and recommended design system component
+
+### Requirement 11: Multi-file Base Style Comparison
+
+**User Story:** As a frontend developer, I want to compare CSS classes across multiple base style files, so that I can identify duplicate or similar classes within the design system itself.
+
+#### Acceptance Criteria
+
+1. WHEN the developer initiates a multi-file comparison, THE Extension SHALL display a file picker allowing selection of multiple base style files
+2. WHEN multiple base style files are selected, THE Analyzer SHALL extract all CSS class definitions from each file
+3. THE Analyzer SHALL compare classes across all selected files to identify duplicate selectors
+4. THE Analyzer SHALL calculate similarity scores between classes with different names but similar properties
+5. THE Analyzer SHALL detect classes that have similarity scores exceeding 80 percent
+6. THE Analyzer SHALL return a JSON report containing duplicate classes, similar classes with similarity scores, and their file locations
+7. THE Panel SHALL display comparison results organized by file, showing duplicate and similar classes with their similarity percentages
+
+### Requirement 12: Selective File and Folder Scanning
+
+**User Story:** As a frontend developer, I want to select specific files or folders to analyze, so that I can focus on relevant parts of my large Angular project without scanning the entire workspace.
+
+#### Acceptance Criteria
+
+1. WHEN the developer right-clicks on a file in the explorer, THE Extension SHALL display a context menu option "AI Optimize this file"
+2. WHEN the developer right-clicks on a folder in the explorer, THE Extension SHALL display a context menu option "AI Optimize this folder"
+3. WHEN the developer selects "AI Optimize this folder", THE Extension SHALL recursively find all Angular component files within the folder and its subfolders
+4. THE Extension SHALL display a quick pick menu showing all discovered component files with checkboxes for selection
+5. WHEN the developer confirms the selection, THE Extension SHALL analyze only the selected files
+6. THE Extension SHALL provide a command palette option "AI Frontend Optimizer: Scan Selection" that analyzes currently selected files in the explorer
+7. THE Extension SHALL display progress information indicating how many files are being analyzed and the current file being processed

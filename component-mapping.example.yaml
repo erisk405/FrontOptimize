@@ -1,0 +1,59 @@
+# Component Mapping Configuration
+# This file defines the mapping between native HTML elements and design system components
+# Used by AI Frontend Optimizer to suggest design system components
+
+components:
+  go5-button:
+    selector: go5-button
+    keywords: ["button", "btn"]
+    description: "Primary button component from GoFive design system with consistent styling and behavior"
+  
+  go5-input:
+    selector: go5-input
+    keywords: ["input", "textbox", "text-field"]
+    description: "Input field component with built-in validation and accessibility features"
+  
+  go5-select:
+    selector: go5-select
+    keywords: ["select", "dropdown"]
+    description: "Dropdown select component with enhanced keyboard navigation"
+  
+  go5-textarea:
+    selector: go5-textarea
+    keywords: ["textarea", "text-area"]
+    description: "Multi-line text input component with auto-resize capability"
+  
+  go5-card:
+    selector: go5-card
+    keywords: ["card", "panel", "container"]
+    description: "Card container component for grouping related content"
+  
+  go5-link:
+    selector: go5-link
+    keywords: ["a", "link", "anchor"]
+    description: "Link component with consistent styling and routing integration"
+  
+  go5-table:
+    selector: go5-table
+    keywords: ["table"]
+    description: "Data table component with sorting, filtering, and pagination"
+  
+  go5-form:
+    selector: go5-form
+    keywords: ["form"]
+    description: "Form wrapper component with validation and submission handling"
+  
+  go5-heading:
+    selector: go5-heading
+    keywords: ["h1", "h2", "h3", "h4", "h5", "h6", "heading"]
+    description: "Heading component with consistent typography and hierarchy"
+  
+  go5-list:
+    selector: go5-list
+    keywords: ["ul", "ol", "list"]
+    description: "List component with enhanced styling options"
+  
+  go5-image:
+    selector: go5-image
+    keywords: ["img", "image"]
+    description: "Image component with lazy loading and responsive sizing"

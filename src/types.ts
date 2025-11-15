@@ -10,7 +10,63 @@ export interface AnalyzerResult {
     cssIssues: CssIssue[];
     tsIssues: TypeScriptIssue[];
     templateIssues: TemplateIssue[];
+    similarityResults?: SimilarityResult[];
+    componentSuggestions?: ComponentSuggestion[];
+    baseStyleComparison?: BaseStyleComparison;
     metadata: AnalysisMetadata;
+}
+
+export interface BaseStyleComparison {
+    duplicates: DuplicateClass[];
+    similarClasses: SimilarClassPair[];
+}
+
+export interface DuplicateClass {
+    className: string;
+    files: string[];
+}
+
+export interface SimilarClassPair {
+    class1: ClassReference;
+    class2: ClassReference;
+    similarityPercent: number;
+}
+
+export interface ClassReference {
+    name: string;
+    file: string;
+}
+
+export interface BaseStyleComparisonResult {
+    baseStyleComparison: BaseStyleComparison;
+    metadata: {
+        analyzedAt: string;
+        analysisTimeMs: number;
+        filesCompared: string[];
+    };
+}
+
+export interface ComponentSuggestion {
+    nativeElement: string;
+    line: number;
+    suggestedComponent: string;
+    reason: string;
+}
+
+export interface SimilarityResult {
+    localClass: string;
+    bestMatch: {
+        baseClass: string;
+        baseFile: string;
+        similarityPercent: number;
+    };
+    matchingProperties: string[];
+    differingProperties: Array<{
+        property: string;
+        localValue: string;
+        baseValue: string;
+    }>;
+    redundantProperties: string[];
 }
 
 export interface AnalysisMetadata {

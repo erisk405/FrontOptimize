@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { optimizeFile } from './commands/optimizeCommand';
+import { optimizeFile, optimizeFileWithSimilarity, optimizeFolder, optimizeSelection } from './commands/optimizeCommand';
 import { verifyBinary, shouldSkipVerification, showSetupWizard } from './utils/binaryVerification';
 import { RustAnalyzerRunner } from './services/rustAnalyzerRunner';
 import { getLogger } from './utils/logger';
@@ -159,7 +159,184 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // Register the optimize with similarity command
+    const optimizeWithSimilarityCommand = vscode.commands.registerCommand(
+        'aiFrontendOptimizer.optimizeFileWithSimilarity',
+        async (uri: vscode.Uri) => {
+            const operationId = `optimize-similarity-${Date.now()}`;
+            logger.logOperationStart('optimizeFileWithSimilarity', { operationId, uri: uri?.fsPath });
+            const stopTimer = logger.startTimer(operationId);
+
+            try {
+                // Get the URI from the active editor if not provided
+                const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
+                
+                if (!targetUri) {
+                    logger.warn('No file selected for optimization with similarity');
+                    vscode.window.showErrorMessage('No file selected for optimization');
+                    return;
+                }
+
+                logger.debug('Executing optimize with similarity command', { file: targetUri.fsPath });
+
+                // Execute the optimize with similarity command
+                await optimizeFileWithSimilarity(targetUri, context);
+
+                stopTimer();
+                logger.logOperationComplete('optimizeFileWithSimilarity', undefined, { operationId });
+            } catch (error) {
+                stopTimer();
+                logger.logOperationFailure('optimizeFileWithSimilarity', error, { operationId });
+                
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                vscode.window.showErrorMessage(`AI Frontend Optimizer: ${errorMessage}`);
+            }
+        }
+    );
+
+    // Register the compare base styles command
+    const compareBaseStylesCommand = vscode.commands.registerCommand(
+        'aiFrontendOptimizer.compareBaseStyles',
+        async () => {
+            const operationId = `compare-base-styles-${Date.now()}`;
+            logger.logOperationStart('compareBaseStyles', { operationId });
+            const stopTimer = logger.startTimer(operationId);
+
+            try {
+                logger.debug('Executing compare base styles command');
+
+                // Show file picker for selecting multiple CSS/SCSS files
+                const fileUris = await vscode.window.showOpenDialog({
+                    canSelectMany: true,
+                    canSelectFiles: true,
+                    canSelectFolders: false,
+                    filters: {
+                        'Style Files': ['css', 'scss', 'sass']
+                    },
+                    title: 'Select Base Style Files to Compare (minimum 2 files)'
+                });
+
+                if (!fileUris || fileUris.length < 2) {
+                    logger.warn('User cancelled or selected insufficient files for comparison');
+                    vscode.window.showWarningMessage('Please select at least 2 files to compare');
+                    return;
+                }
+
+                const filePaths = fileUris.map(uri => uri.fsPath);
+                logger.info('User selected files for comparison', { files: filePaths });
+
+                // Get similarity threshold from configuration
+                const similarityThreshold = ConfigurationManager.get('similarityThreshold') as number;
+
+                // Show progress
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: 'Comparing Base Styles',
+                        cancellable: true
+                    },
+                    async (progress, token) => {
+                        progress.report({ message: 'Loading and parsing files...' });
+
+                        // Execute comparison
+                        const result = await rustAnalyzer.compareBaseStyles(
+                            filePaths,
+                            similarityThreshold,
+                            30,
+                            token
+                        );
+
+                        progress.report({ message: 'Displaying results...' });
+
+                        // Import and show results panel
+                        const { ResultsPanel } = await import('./panels/resultsPanel');
+                        const panel = ResultsPanel.createOrShow(context.extensionUri);
+                        
+                        // Display comparison results
+                        panel.updateBaseStyleComparison(result);
+
+                        logger.info('Base style comparison completed', {
+                            duplicates: result.baseStyleComparison.duplicates.length,
+                            similarClasses: result.baseStyleComparison.similarClasses.length
+                        });
+                    }
+                );
+
+                stopTimer();
+                logger.logOperationComplete('compareBaseStyles', undefined, { operationId });
+            } catch (error) {
+                stopTimer();
+                logger.logOperationFailure('compareBaseStyles', error, { operationId });
+                
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                vscode.window.showErrorMessage(`AI Frontend Optimizer: ${errorMessage}`);
+            }
+        }
+    );
+
+    // Register the optimize folder command
+    const optimizeFolderCommand = vscode.commands.registerCommand(
+        'aiFrontendOptimizer.optimizeFolder',
+        async (uri: vscode.Uri) => {
+            const operationId = `optimize-folder-${Date.now()}`;
+            logger.logOperationStart('optimizeFolder', { operationId, uri: uri?.fsPath });
+            const stopTimer = logger.startTimer(operationId);
+
+            try {
+                if (!uri) {
+                    logger.warn('No folder selected for optimization');
+                    vscode.window.showErrorMessage('No folder selected for optimization');
+                    return;
+                }
+
+                logger.debug('Executing optimize folder command', { folder: uri.fsPath });
+
+                // Execute the optimize folder command
+                await optimizeFolder(uri, context);
+
+                stopTimer();
+                logger.logOperationComplete('optimizeFolder', undefined, { operationId });
+            } catch (error) {
+                stopTimer();
+                logger.logOperationFailure('optimizeFolder', error, { operationId });
+                
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                vscode.window.showErrorMessage(`AI Frontend Optimizer: ${errorMessage}`);
+            }
+        }
+    );
+
+    // Register the optimize selection command
+    const optimizeSelectionCommand = vscode.commands.registerCommand(
+        'aiFrontendOptimizer.optimizeSelection',
+        async () => {
+            const operationId = `optimize-selection-${Date.now()}`;
+            logger.logOperationStart('optimizeSelection', { operationId });
+            const stopTimer = logger.startTimer(operationId);
+
+            try {
+                logger.debug('Executing optimize selection command');
+
+                // Execute the optimize selection command
+                await optimizeSelection(context);
+
+                stopTimer();
+                logger.logOperationComplete('optimizeSelection', undefined, { operationId });
+            } catch (error) {
+                stopTimer();
+                logger.logOperationFailure('optimizeSelection', error, { operationId });
+                
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                vscode.window.showErrorMessage(`AI Frontend Optimizer: ${errorMessage}`);
+            }
+        }
+    );
+
     context.subscriptions.push(optimizeCommand);
+    context.subscriptions.push(optimizeWithSimilarityCommand);
+    context.subscriptions.push(compareBaseStylesCommand);
+    context.subscriptions.push(optimizeFolderCommand);
+    context.subscriptions.push(optimizeSelectionCommand);
     context.subscriptions.push(showLogsCommand);
     context.subscriptions.push(configureApiKeyCommand);
     context.subscriptions.push(resetConfigCommand);

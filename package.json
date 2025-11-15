@@ -41,6 +41,18 @@
         "title": "AI Optimize this file"
       },
       {
+        "command": "aiFrontendOptimizer.optimizeFileWithSimilarity",
+        "title": "AI Optimize with Similarity Analysis"
+      },
+      {
+        "command": "aiFrontendOptimizer.optimizeFolder",
+        "title": "AI Optimize this folder"
+      },
+      {
+        "command": "aiFrontendOptimizer.optimizeSelection",
+        "title": "AI Frontend Optimizer: Scan Selection"
+      },
+      {
         "command": "aiFrontendOptimizer.showLogs",
         "title": "AI Frontend Optimizer: Show Logs"
       },
@@ -51,6 +63,10 @@
       {
         "command": "aiFrontendOptimizer.resetConfiguration",
         "title": "AI Frontend Optimizer: Reset Configuration to Defaults"
+      },
+      {
+        "command": "aiFrontendOptimizer.compareBaseStyles",
+        "title": "AI Frontend Optimizer: Compare Base Styles"
       }
     ],
     "menus": {
@@ -59,11 +75,26 @@
           "command": "aiFrontendOptimizer.optimizeFile",
           "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
           "group": "navigation"
+        },
+        {
+          "command": "aiFrontendOptimizer.optimizeFileWithSimilarity",
+          "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
+          "group": "navigation"
+        },
+        {
+          "command": "aiFrontendOptimizer.optimizeFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
         }
       ],
       "editor/context": [
         {
           "command": "aiFrontendOptimizer.optimizeFile",
+          "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
+          "group": "navigation"
+        },
+        {
+          "command": "aiFrontendOptimizer.optimizeFileWithSimilarity",
           "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
           "group": "navigation"
         }
@@ -77,10 +108,12 @@
           "default": "openai",
           "enum": [
             "openai",
+            "anthropic",
             "internal"
           ],
           "enumDescriptions": [
             "Use OpenAI's GPT models for recommendations",
+            "Use Anthropic's Claude models for recommendations",
             "Use internal AI model (requires separate configuration)"
           ],
           "description": "AI provider to use for generating optimization recommendations",
@@ -99,14 +132,20 @@
           "enum": [
             "gpt-4",
             "gpt-4-turbo",
-            "gpt-3.5-turbo"
+            "gpt-3.5-turbo",
+            "claude-3-opus-20240229",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022"
           ],
           "enumDescriptions": [
-            "GPT-4 - Most capable model with best recommendations",
-            "GPT-4 Turbo - Faster and more cost-effective",
-            "GPT-3.5 Turbo - Fastest and most economical option"
+            "GPT-4 - Most capable OpenAI model with best recommendations",
+            "GPT-4 Turbo - Faster and more cost-effective OpenAI model",
+            "GPT-3.5 Turbo - Fastest and most economical OpenAI option",
+            "Claude 3 Opus - Most capable Anthropic model with best reasoning",
+            "Claude 3.5 Sonnet - Latest balanced Anthropic model (recommended)",
+            "Claude 3.5 Haiku - Fast and economical Anthropic option"
           ],
-          "description": "AI model to use for generating recommendations",
+          "description": "AI model to use for generating recommendations. Make sure the model matches your selected AI provider.",
           "order": 3
         },
         "aiFrontendOptimizer.maxNestingDepth": {
@@ -122,7 +161,7 @@
           "default": 30,
           "minimum": 5,
           "maximum": 300,
-          "description": "Timeout in seconds for analyzer execution. Increase this value for very large component files.",
+          "description": "Timeout in seconds for analyzer execution and AI API calls. Increase this value for very large component files or slow API responses.",
           "order": 5
         },
         "aiFrontendOptimizer.enableAutoAnalysis": {
@@ -142,6 +181,41 @@
           "default": false,
           "description": "Enable verbose logging for troubleshooting. Logs will include DEBUG level messages in the output channel.",
           "order": 8
+        },
+        "aiFrontendOptimizer.baseStyleFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Default base style files for CSS similarity comparison. These files will be used automatically when running optimization.",
+          "order": 9
+        },
+        "aiFrontendOptimizer.componentMappingYaml": {
+          "type": "string",
+          "default": "",
+          "description": "Path to YAML file containing component mapping definitions for design system component suggestions. Leave empty to disable component suggestions.",
+          "order": 10
+        },
+        "aiFrontendOptimizer.similarityThreshold": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Similarity threshold percentage (0-100) for CSS class comparison. Classes with similarity above this threshold will be reported as potential duplicates.",
+          "order": 11
+        },
+        "aiFrontendOptimizer.enableSimilarityScanning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CSS similarity scanning to detect duplicate styles and suggest design system classes. Disable to skip similarity analysis.",
+          "order": 12
+        },
+        "aiFrontendOptimizer.enableComponentSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable design system component suggestions for native HTML elements. Requires componentMappingYaml to be configured.",
+          "order": 13
         }
       }
     }

@@ -1,8 +1,11 @@
 use lightningcss::stylesheet::{ParserOptions, StyleSheet};
 use lightningcss::rules::CssRule;
 use lightningcss::selector::{Component, Selector};
+use lightningcss::properties::Property;
+use lightningcss::declaration::DeclarationBlock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +25,41 @@ pub enum CssIssueType {
     RedundantSelector,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CssClass {
+    pub name: String,
+    pub properties: HashMap<String, String>,
+    pub line: usize,
+    pub file: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimilarityResult {
+    pub local_class: String,
+    pub best_match: BestMatch,
+    pub matching_properties: Vec<String>,
+    pub differing_properties: Vec<PropertyDiff>,
+    pub redundant_properties: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BestMatch {
+    pub base_class: String,
+    pub base_file: String,
+    pub similarity_percent: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyDiff {
+    pub property: String,
+    pub local_value: String,
+    pub base_value: String,
+}
+
 #[derive(Debug, Clone)]
 struct SelectorInfo {
     selector_text: String,
@@ -30,13 +68,25 @@ struct SelectorInfo {
     classes: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ClassInfo {
+    name: String,
+    properties: HashMap<String, String>,
+    line: usize,
+}
+
 pub struct CssAnalyzer {
     stylesheet: StyleSheet<'static, 'static>,
     selectors: Vec<SelectorInfo>,
+    file_path: String,
 }
 
 impl CssAnalyzer {
     pub fn new(css_content: &str) -> Result<Self, String> {
+        Self::new_with_path(css_content, "unknown")
+    }
+
+    pub fn new_with_path(css_content: &str, file_path: &str) -> Result<Self, String> {
         // Parse the CSS using lightningcss
         let stylesheet = StyleSheet::parse(
             css_content,
@@ -49,6 +99,7 @@ impl CssAnalyzer {
         Ok(CssAnalyzer {
             stylesheet,
             selectors,
+            file_path: file_path.to_string(),
         })
     }
 
@@ -280,4 +331,449 @@ impl CssAnalyzer {
         classes1.is_subset(&classes2) && 
         classes2.len() > classes1.len()
     }
+
+    /// Extract all CSS classes with their properties from the stylesheet
+    pub fn extract_classes(&self) -> Vec<CssClass> {
+        let mut classes = Vec::new();
+        
+        for rule in &self.stylesheet.rules.0 {
+            Self::extract_classes_from_rule(rule, &mut classes, &self.file_path);
+        }
+        
+        classes
+    }
+
+    /// Recursively extract classes from CSS rules
+    fn extract_classes_from_rule(rule: &CssRule, classes: &mut Vec<CssClass>, file_path: &str) {
+        match rule {
+            CssRule::Style(style_rule) => {
+                let loc = &style_rule.loc;
+                let line = loc.line as usize;
+                
+                // Extract properties from the declaration block
+                let properties = Self::extract_properties(&style_rule.declarations);
+                
+                // Process each selector in the rule
+                for selector in &style_rule.selectors.0 {
+                    // Extract class names from this selector
+                    let class_names = Self::extract_classes_from_selector(selector);
+                    
+                    // Create a CssClass entry for each class in the selector
+                    for class_name in class_names {
+                        classes.push(CssClass {
+                            name: class_name,
+                            properties: properties.clone(),
+                            line,
+                            file: file_path.to_string(),
+                        });
+                    }
+                }
+            }
+            CssRule::Media(media_rule) => {
+                // Process nested rules in media queries
+                for nested_rule in &media_rule.rules.0 {
+                    Self::extract_classes_from_rule(nested_rule, classes, file_path);
+                }
+            }
+            CssRule::Supports(supports_rule) => {
+                // Process nested rules in @supports
+                for nested_rule in &supports_rule.rules.0 {
+                    Self::extract_classes_from_rule(nested_rule, classes, file_path);
+                }
+            }
+            _ => {
+                // Ignore other rule types (imports, keyframes, etc.)
+            }
+        }
+    }
+
+    /// Extract property-value pairs from a declaration block
+    fn extract_properties(declarations: &DeclarationBlock) -> HashMap<String, String> {
+        let mut properties = HashMap::new();
+        
+        for declaration in &declarations.declarations {
+            let property_name = Self::property_to_name(&declaration);
+            let property_value = Self::property_to_value(&declaration);
+            
+            if !property_name.is_empty() && !property_value.is_empty() {
+                properties.insert(property_name, property_value);
+            }
+        }
+        
+        properties
+    }
+
+    /// Convert a Property to its name string
+    fn property_to_name(property: &Property) -> String {
+        match property {
+            Property::BackgroundColor(_) => "background-color".to_string(),
+            Property::Color(_) => "color".to_string(),
+            Property::Display(_) => "display".to_string(),
+            Property::Width(_) => "width".to_string(),
+            Property::Height(_) => "height".to_string(),
+            Property::Margin(_) => "margin".to_string(),
+            Property::MarginTop(_) => "margin-top".to_string(),
+            Property::MarginRight(_) => "margin-right".to_string(),
+            Property::MarginBottom(_) => "margin-bottom".to_string(),
+            Property::MarginLeft(_) => "margin-left".to_string(),
+            Property::Padding(_) => "padding".to_string(),
+            Property::PaddingTop(_) => "padding-top".to_string(),
+            Property::PaddingRight(_) => "padding-right".to_string(),
+            Property::PaddingBottom(_) => "padding-bottom".to_string(),
+            Property::PaddingLeft(_) => "padding-left".to_string(),
+            Property::Border(_) => "border".to_string(),
+            Property::BorderTop(_) => "border-top".to_string(),
+            Property::BorderRight(_) => "border-right".to_string(),
+            Property::BorderBottom(_) => "border-bottom".to_string(),
+            Property::BorderLeft(_) => "border-left".to_string(),
+            Property::BorderRadius(_, _) => "border-radius".to_string(),
+            Property::FontSize(_) => "font-size".to_string(),
+            Property::FontWeight(_) => "font-weight".to_string(),
+            Property::FontFamily(_) => "font-family".to_string(),
+            Property::LineHeight(_) => "line-height".to_string(),
+            Property::TextAlign(_) => "text-align".to_string(),
+            Property::Position(_) => "position".to_string(),
+            Property::Top(_) => "top".to_string(),
+            Property::Right(_) => "right".to_string(),
+            Property::Bottom(_) => "bottom".to_string(),
+            Property::Left(_) => "left".to_string(),
+            Property::ZIndex(_) => "z-index".to_string(),
+            Property::Flex(_) => "flex".to_string(),
+            Property::FlexDirection(_) => "flex-direction".to_string(),
+            Property::JustifyContent(_) => "justify-content".to_string(),
+            Property::AlignItems(_) => "align-items".to_string(),
+            Property::Gap(_) => "gap".to_string(),
+            Property::Opacity(_) => "opacity".to_string(),
+            Property::Cursor(_) => "cursor".to_string(),
+            Property::Overflow(_) => "overflow".to_string(),
+            Property::OverflowX(_) => "overflow-x".to_string(),
+            Property::OverflowY(_) => "overflow-y".to_string(),
+            Property::BoxShadow(_) => "box-shadow".to_string(),
+            Property::TextDecoration(_) => "text-decoration".to_string(),
+            Property::Transform(_) => "transform".to_string(),
+            Property::Transition(_) => "transition".to_string(),
+            Property::Unparsed(unparsed) => unparsed.property_id.to_string(),
+            _ => format!("{:?}", property).split('(').next().unwrap_or("unknown").to_lowercase(),
+        }
+    }
+
+    /// Convert a Property to its value string
+    fn property_to_value(property: &Property) -> String {
+        // Use debug format as a simple way to get the value
+        // This is a simplified approach; a more robust solution would pattern match each property type
+        format!("{:?}", property)
+            .split('(')
+            .skip(1)
+            .collect::<Vec<_>>()
+            .join("(")
+            .trim_end_matches(')')
+            .to_string()
+    }
+
+    /// Calculate similarity between two CSS classes using Jaccard index
+    /// Returns a percentage (0-100) indicating how similar the classes are
+    pub fn calculate_similarity(local: &CssClass, base: &CssClass) -> f32 {
+        if local.properties.is_empty() && base.properties.is_empty() {
+            return 100.0;
+        }
+        
+        if local.properties.is_empty() || base.properties.is_empty() {
+            return 0.0;
+        }
+
+        // Get all unique property keys from both classes
+        let local_keys: HashSet<&String> = local.properties.keys().collect();
+        let base_keys: HashSet<&String> = base.properties.keys().collect();
+        
+        // Calculate intersection: properties that exist in both with the same value
+        let mut matching_count = 0;
+        for key in local_keys.intersection(&base_keys) {
+            if let (Some(local_val), Some(base_val)) = (local.properties.get(*key), base.properties.get(*key)) {
+                // Normalize values for comparison (remove whitespace, lowercase)
+                let local_normalized = local_val.to_lowercase().replace(" ", "");
+                let base_normalized = base_val.to_lowercase().replace(" ", "");
+                
+                if local_normalized == base_normalized {
+                    matching_count += 1;
+                }
+            }
+        }
+        
+        // Calculate union: all unique properties from both classes
+        let union_count = local_keys.union(&base_keys).count();
+        
+        // Jaccard similarity: intersection / union
+        if union_count == 0 {
+            return 0.0;
+        }
+        
+        (matching_count as f32 / union_count as f32) * 100.0
+    }
+
+    /// Compare local CSS classes with base style classes
+    /// Returns similarity results for each local class with its best match
+    pub fn compare_with_base_styles(&self, base_classes: &[CssClass]) -> Vec<SimilarityResult> {
+        let local_classes = self.extract_classes();
+        let mut results = Vec::new();
+        
+        for local_class in &local_classes {
+            // Find the best matching base class
+            let mut best_match: Option<(f32, &CssClass)> = None;
+            
+            for base_class in base_classes {
+                let similarity = Self::calculate_similarity(local_class, base_class);
+                
+                if let Some((best_similarity, _)) = best_match {
+                    if similarity > best_similarity {
+                        best_match = Some((similarity, base_class));
+                    }
+                } else {
+                    best_match = Some((similarity, base_class));
+                }
+            }
+            
+            // Generate similarity result if we found a match
+            if let Some((similarity_percent, base_class)) = best_match {
+                // Only include results with meaningful similarity (> 0%)
+                if similarity_percent > 0.0 {
+                    let (matching, differing, redundant) = Self::compare_properties(local_class, base_class);
+                    
+                    results.push(SimilarityResult {
+                        local_class: local_class.name.clone(),
+                        best_match: BestMatch {
+                            base_class: base_class.name.clone(),
+                            base_file: base_class.file.clone(),
+                            similarity_percent,
+                        },
+                        matching_properties: matching,
+                        differing_properties: differing,
+                        redundant_properties: redundant,
+                    });
+                }
+            }
+        }
+        
+        results
+    }
+
+    /// Compare properties between local and base classes
+    /// Returns (matching, differing, redundant) properties
+    fn compare_properties(local: &CssClass, base: &CssClass) -> (Vec<String>, Vec<PropertyDiff>, Vec<String>) {
+        let mut matching = Vec::new();
+        let mut differing = Vec::new();
+        let mut redundant = Vec::new();
+        
+        let local_keys: HashSet<&String> = local.properties.keys().collect();
+        let base_keys: HashSet<&String> = base.properties.keys().collect();
+        
+        // Find matching and differing properties
+        for key in &local_keys {
+            if let Some(local_val) = local.properties.get(*key) {
+                if let Some(base_val) = base.properties.get(*key) {
+                    // Normalize for comparison
+                    let local_normalized = local_val.to_lowercase().replace(" ", "");
+                    let base_normalized = base_val.to_lowercase().replace(" ", "");
+                    
+                    if local_normalized == base_normalized {
+                        // Property matches
+                        matching.push(format!("{}: {}", key, local_val));
+                    } else {
+                        // Property exists in both but with different values
+                        differing.push(PropertyDiff {
+                            property: (*key).clone(),
+                            local_value: local_val.clone(),
+                            base_value: base_val.clone(),
+                        });
+                    }
+                } else {
+                    // Property exists in local but not in base (redundant)
+                    redundant.push(format!("{}: {}", key, local_val));
+                }
+            }
+        }
+        
+        // Properties in base but not in local are not redundant, they're missing
+        // We don't report those here as they're not redundant in the local class
+        
+        (matching, differing, redundant)
+    }
+}
+
+/// Load and parse multiple base style files
+pub fn load_base_styles(file_paths: &[PathBuf]) -> Result<Vec<CssClass>, String> {
+    let mut all_classes = Vec::new();
+    
+    for path in file_paths {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
+        
+        let file_path_str = path.to_string_lossy().to_string();
+        let analyzer = CssAnalyzer::new_with_path(&content, &file_path_str)?;
+        
+        let mut classes = analyzer.extract_classes();
+        all_classes.append(&mut classes);
+    }
+    
+    Ok(all_classes)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseStyleComparison {
+    pub duplicates: Vec<DuplicateClass>,
+    pub similar_classes: Vec<SimilarClassPair>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateClass {
+    pub class_name: String,
+    pub files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimilarClassPair {
+    pub class1: ClassReference,
+    pub class2: ClassReference,
+    pub similarity_percent: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassReference {
+    pub name: String,
+    pub file: String,
+}
+
+/// Compare multiple base style files to find duplicates and similar classes
+/// Returns a BaseStyleComparison with duplicate classes and similar class pairs
+pub fn compare_multiple_base_files(file_paths: &[PathBuf], similarity_threshold: f32) -> Result<BaseStyleComparison, String> {
+    // Load and parse all base style files
+    let mut all_classes: Vec<CssClass> = Vec::new();
+    let mut parse_errors: Vec<String> = Vec::new();
+    
+    for path in file_paths {
+        match std::fs::read_to_string(path) {
+            Ok(content) => {
+                let file_path_str = path.to_string_lossy().to_string();
+                match CssAnalyzer::new_with_path(&content, &file_path_str) {
+                    Ok(analyzer) => {
+                        let mut classes = analyzer.extract_classes();
+                        all_classes.append(&mut classes);
+                    }
+                    Err(e) => {
+                        // Log parsing error but continue with other files
+                        let error_msg = format!("Failed to parse {}: {}", path.display(), e);
+                        eprintln!("Warning: {}", error_msg);
+                        parse_errors.push(error_msg);
+                    }
+                }
+            }
+            Err(e) => {
+                // Log read error but continue with other files
+                let error_msg = format!("Failed to read {}: {}", path.display(), e);
+                eprintln!("Warning: {}", error_msg);
+                parse_errors.push(error_msg);
+            }
+        }
+    }
+    
+    // If no classes were successfully loaded, return an error
+    if all_classes.is_empty() {
+        return Err(format!("No CSS classes could be loaded from the provided files. Errors: {}", parse_errors.join("; ")));
+    }
+    
+    // Find duplicate classes (same name in different files)
+    let duplicates = find_duplicate_classes(&all_classes);
+    
+    // Find similar classes (different names but similar properties)
+    let similar_classes = find_similar_classes(&all_classes, similarity_threshold);
+    
+    Ok(BaseStyleComparison {
+        duplicates,
+        similar_classes,
+    })
+}
+
+/// Find classes with identical names in different files
+fn find_duplicate_classes(classes: &[CssClass]) -> Vec<DuplicateClass> {
+    let mut class_map: HashMap<String, Vec<String>> = HashMap::new();
+    
+    // Group classes by name and track which files they appear in
+    for class in classes {
+        class_map
+            .entry(class.name.clone())
+            .or_insert_with(Vec::new)
+            .push(class.file.clone());
+    }
+    
+    // Find classes that appear in multiple files
+    let mut duplicates = Vec::new();
+    for (class_name, files) in class_map {
+        // Remove duplicate file entries (same class defined multiple times in same file)
+        let mut unique_files: Vec<String> = files.into_iter().collect::<HashSet<_>>().into_iter().collect();
+        unique_files.sort();
+        
+        // Only report if the class appears in more than one file
+        if unique_files.len() > 1 {
+            duplicates.push(DuplicateClass {
+                class_name,
+                files: unique_files,
+            });
+        }
+    }
+    
+    // Sort by class name for consistent output
+    duplicates.sort_by(|a, b| a.class_name.cmp(&b.class_name));
+    
+    duplicates
+}
+
+/// Find classes with different names but similar properties across files
+fn find_similar_classes(classes: &[CssClass], similarity_threshold: f32) -> Vec<SimilarClassPair> {
+    let mut similar_pairs = Vec::new();
+    
+    // Compare each class with every other class
+    for i in 0..classes.len() {
+        for j in (i + 1)..classes.len() {
+            let class1 = &classes[i];
+            let class2 = &classes[j];
+            
+            // Skip if same class name (those are handled by duplicate detection)
+            if class1.name == class2.name {
+                continue;
+            }
+            
+            // Skip if from the same file (not cross-file comparison)
+            if class1.file == class2.file {
+                continue;
+            }
+            
+            // Calculate similarity
+            let similarity = CssAnalyzer::calculate_similarity(class1, class2);
+            
+            // Only include if similarity exceeds threshold
+            if similarity >= similarity_threshold {
+                similar_pairs.push(SimilarClassPair {
+                    class1: ClassReference {
+                        name: class1.name.clone(),
+                        file: class1.file.clone(),
+                    },
+                    class2: ClassReference {
+                        name: class2.name.clone(),
+                        file: class2.file.clone(),
+                    },
+                    similarity_percent: similarity,
+                });
+            }
+        }
+    }
+    
+    // Sort by similarity percentage (highest first)
+    similar_pairs.sort_by(|a, b| {
+        b.similarity_percent.partial_cmp(&a.similarity_percent).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    
+    similar_pairs
 }
