@@ -442,13 +442,12 @@ export class ResultsPanel {
                 ` : ''}
 
                 <div class="similarity-actions">
-                    <button class="btn btn-primary go-to-code" 
+                    <button class="btn btn-secondary go-to-base-class" 
                             data-file="${this._escapeHtml(cssFile)}" 
-                            data-line="1" 
-                            data-column="1">
+                            data-class="${this._escapeHtml(result.localClass)}">
                         Go to Local Class
                     </button>
-                    <button class="btn btn-secondary go-to-base-class" 
+                    <button class="btn btn-primary go-to-base-class" 
                             data-file="${this._escapeHtml(result.bestMatch.baseFile)}" 
                             data-class="${this._escapeHtml(result.bestMatch.baseClass)}">
                         Go to Base Class

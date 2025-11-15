@@ -105,7 +105,7 @@
       "properties": {
         "aiFrontendOptimizer.aiProvider": {
           "type": "string",
-          "default": "openai",
+          "default": "anthropic",
           "enum": [
             "openai",
             "anthropic",
@@ -128,22 +128,26 @@
         },
         "aiFrontendOptimizer.model": {
           "type": "string",
-          "default": "gpt-4",
+          "default": "claude-sonnet-4-5-20250929",
           "enum": [
-            "gpt-4",
+            "claude-sonnet-4-5-20250929",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
+            "gpt-4o",
+            "gpt-4o-mini",
             "gpt-4-turbo",
-            "gpt-3.5-turbo",
-            "claude-3-opus-20240229",
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022"
+            "gpt-4",
+            "gpt-3.5-turbo"
           ],
           "enumDescriptions": [
-            "GPT-4 - Most capable OpenAI model with best recommendations",
+            "Claude Sonnet 4.5 - Latest and most capable Anthropic model (recommended)",
+            "Claude Sonnet 4 - Balanced performance and cost",
+            "Claude Opus 4 - Most powerful Anthropic model for complex tasks",
+            "GPT-4o - Latest and most capable OpenAI model",
+            "GPT-4o Mini - Fast and cost-effective latest model",
             "GPT-4 Turbo - Faster and more cost-effective OpenAI model",
-            "GPT-3.5 Turbo - Fastest and most economical OpenAI option",
-            "Claude 3 Opus - Most capable Anthropic model with best reasoning",
-            "Claude 3.5 Sonnet - Latest balanced Anthropic model (recommended)",
-            "Claude 3.5 Haiku - Fast and economical Anthropic option"
+            "GPT-4 - Most capable OpenAI model with best recommendations",
+            "GPT-3.5 Turbo - Fastest and most economical OpenAI option"
           ],
           "description": "AI model to use for generating recommendations. Make sure the model matches your selected AI provider.",
           "order": 3

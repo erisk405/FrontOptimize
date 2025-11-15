@@ -24,7 +24,7 @@ export class AnthropicProvider implements AIProvider {
     private timeout: number;
     private maxRetries: number;
 
-    constructor(apiKey: string, model: string = 'claude-3-5-sonnet-20241022', timeout: number = 45000, maxRetries: number = 3) {
+    constructor(apiKey: string, model: string = 'claude-sonnet-4-5-20250929', timeout: number = 45000, maxRetries: number = 3) {
         this.apiKey = apiKey;
         this.model = model;
         this.timeout = timeout;
@@ -46,8 +46,8 @@ export class AnthropicProvider implements AIProvider {
                 'https://api.anthropic.com/v1/messages',
                 {
                     model: this.model,
-                    max_tokens: 2000,
-                    system: 'You are an expert frontend developer specializing in Angular optimization. Provide clear, actionable recommendations for code improvements.',
+                    max_tokens: 4000,
+                    system: 'You are an expert Angular developer with deep knowledge of TypeScript, RxJS, Angular best practices, CSS optimization, and performance tuning. Analyze code issues carefully and provide specific, actionable recommendations with clear explanations. Focus on practical solutions that improve code quality, performance, and maintainability. Always return valid JSON responses when requested.',
                     messages: [
                         {
                             role: 'user',
@@ -145,7 +145,7 @@ export class OpenAIProvider implements AIProvider {
     private timeout: number;
     private maxRetries: number;
 
-    constructor(apiKey: string, model: string = 'gpt-4', timeout: number = 45000, maxRetries: number = 3) {
+    constructor(apiKey: string, model: string = 'gpt-4o', timeout: number = 45000, maxRetries: number = 3) {
         this.apiKey = apiKey;
         this.model = model;
         this.timeout = timeout;
@@ -170,15 +170,15 @@ export class OpenAIProvider implements AIProvider {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are an expert frontend developer specializing in Angular optimization. Provide clear, actionable recommendations for code improvements.'
+                            content: 'You are an expert Angular developer with deep knowledge of TypeScript, RxJS, Angular best practices, CSS optimization, and performance tuning. Analyze code issues carefully and provide specific, actionable recommendations with clear explanations. Focus on practical solutions that improve code quality, performance, and maintainability. Always return valid JSON responses when requested.'
                         },
                         {
                             role: 'user',
                             content: prompt
                         }
                     ],
-                    temperature: 0.7,
-                    max_tokens: 2000
+                    temperature: 0.3,
+                    max_tokens: 4000
                 },
                 {
                     headers: {
@@ -428,76 +428,85 @@ export class AIService {
     private buildPrompt(analysisResult: AnalyzerResult, codeSnippets: Map<string, string>): string {
         const { cssIssues, tsIssues, templateIssues, metadata } = analysisResult;
 
-        let prompt = `Analyze the following Angular component and provide optimization recommendations.\n\n`;
+        let prompt = `You are an expert Angular developer. Analyze the following component issues and provide detailed, actionable optimization recommendations.\n\n`;
         prompt += `Component: ${metadata.componentName}\n`;
         prompt += `Files analyzed: ${Object.values(metadata.filesAnalyzed).filter(f => f).join(', ')}\n\n`;
 
-        // Add CSS issues
+        // Add CSS issues with context
         if (cssIssues.length > 0) {
             prompt += `## CSS Issues (${cssIssues.length})\n\n`;
             cssIssues.forEach((issue, index) => {
-                prompt += `${index + 1}. ${issue.issueType} at line ${issue.line}:\n`;
-                prompt += `   Selector: ${issue.selector}\n`;
-                prompt += `   Description: ${issue.description}\n`;
+                prompt += `### Issue ${index + 1}: ${issue.issueType}\n`;
+                prompt += `- Location: Line ${issue.line}, Column ${issue.column}\n`;
+                prompt += `- Selector: \`${issue.selector}\`\n`;
+                prompt += `- Description: ${issue.description}\n`;
                 
                 // Add relevant code snippet if available
                 const cssSnippet = this.extractRelevantSnippet(codeSnippets.get('css') || '', issue.line, 3);
                 if (cssSnippet) {
-                    prompt += `   Code:\n${cssSnippet}\n`;
+                    prompt += `- Code Context:\n${cssSnippet}\n`;
                 }
                 prompt += `\n`;
             });
         }
 
-        // Add TypeScript issues
+        // Add TypeScript issues with context
         if (tsIssues.length > 0) {
             prompt += `## TypeScript Issues (${tsIssues.length})\n\n`;
             tsIssues.forEach((issue, index) => {
-                prompt += `${index + 1}. ${issue.issueType} at line ${issue.line}:\n`;
-                prompt += `   Identifier: ${issue.identifier}\n`;
-                prompt += `   Description: ${issue.description}\n`;
+                prompt += `### Issue ${index + 1}: ${issue.issueType}\n`;
+                prompt += `- Location: Line ${issue.line}, Column ${issue.column}\n`;
+                prompt += `- Identifier: \`${issue.identifier}\`\n`;
+                prompt += `- Description: ${issue.description}\n`;
                 
                 // Add relevant code snippet if available
                 const tsSnippet = this.extractRelevantSnippet(codeSnippets.get('typescript') || '', issue.line, 3);
                 if (tsSnippet) {
-                    prompt += `   Code:\n${tsSnippet}\n`;
+                    prompt += `- Code Context:\n${tsSnippet}\n`;
                 }
                 prompt += `\n`;
             });
         }
 
-        // Add Template issues
+        // Add Template issues with context
         if (templateIssues.length > 0) {
             prompt += `## Template Issues (${templateIssues.length})\n\n`;
             templateIssues.forEach((issue, index) => {
-                prompt += `${index + 1}. ${issue.issueType} at line ${issue.line} (Severity: ${issue.severity}):\n`;
-                prompt += `   Description: ${issue.description}\n`;
+                prompt += `### Issue ${index + 1}: ${issue.issueType}\n`;
+                prompt += `- Location: Line ${issue.line}\n`;
+                prompt += `- Severity: ${issue.severity}\n`;
+                prompt += `- Description: ${issue.description}\n`;
                 
                 // Add relevant code snippet if available
                 const htmlSnippet = this.extractRelevantSnippet(codeSnippets.get('html') || '', issue.line, 3);
                 if (htmlSnippet) {
-                    prompt += `   Code:\n${htmlSnippet}\n`;
+                    prompt += `- Code Context:\n${htmlSnippet}\n`;
                 }
                 prompt += `\n`;
             });
         }
 
-        prompt += `\nFor each issue, provide:\n`;
-        prompt += `1. A brief summary of the problem\n`;
-        prompt += `2. A specific, actionable recommendation\n`;
-        prompt += `3. Priority level (high/medium/low)\n`;
-        prompt += `4. Optional code example showing the fix\n\n`;
-        prompt += `Format your response as a JSON array with this structure:\n`;
+        prompt += `\n## Instructions\n\n`;
+        prompt += `For EACH issue above, provide a detailed recommendation with:\n`;
+        prompt += `1. **Summary**: A clear, concise problem statement (1-2 sentences)\n`;
+        prompt += `2. **Recommendation**: Specific, actionable steps to fix the issue (2-4 sentences)\n`;
+        prompt += `3. **Priority**: Set based on impact:\n`;
+        prompt += `   - "high": Critical issues affecting functionality, performance, or security\n`;
+        prompt += `   - "medium": Important issues affecting code quality or maintainability\n`;
+        prompt += `   - "low": Minor improvements or style issues\n`;
+        prompt += `4. **Code Example** (optional): Show the corrected code if applicable\n\n`;
+        prompt += `Return ONLY a valid JSON array (no markdown, no explanation) with this exact structure:\n`;
         prompt += `[\n`;
         prompt += `  {\n`;
-        prompt += `    "category": "css|typescript|template",\n`;
-        prompt += `    "issueId": "unique-id",\n`;
-        prompt += `    "summary": "Brief problem summary",\n`;
-        prompt += `    "recommendation": "Detailed recommendation",\n`;
-        prompt += `    "priority": "high|medium|low",\n`;
-        prompt += `    "codeExample": "Optional code example"\n`;
+        prompt += `    "category": "css" | "typescript" | "template",\n`;
+        prompt += `    "issueId": "css-0" | "ts-0" | "template-0" (increment for each issue),\n`;
+        prompt += `    "summary": "Clear problem statement",\n`;
+        prompt += `    "recommendation": "Detailed, actionable recommendation with specific steps",\n`;
+        prompt += `    "priority": "high" | "medium" | "low",\n`;
+        prompt += `    "codeExample": "Optional: Show the fixed code"\n`;
         prompt += `  }\n`;
-        prompt += `]\n`;
+        prompt += `]\n\n`;
+        prompt += `IMPORTANT: Return ONLY the JSON array, nothing else. Make recommendations specific and actionable.`;
 
         return prompt;
     }
@@ -558,13 +567,31 @@ export class AIService {
 
         // CSS recommendations
         analysisResult.cssIssues.forEach((issue, index) => {
+            // Determine priority based on issue type
+            let priority: 'high' | 'medium' | 'low' = 'low';
+            if (issue.issueType === 'UnusedSelector') {
+                priority = 'medium';
+            } else if (issue.issueType === 'DuplicateRule') {
+                priority = 'high';
+            }
+
+            // Enhanced recommendation text
+            let recommendation = issue.description;
+            if (issue.issueType === 'UnusedSelector') {
+                recommendation = `The CSS selector "${issue.selector}" is not used in the template. Consider removing it to reduce bundle size and improve maintainability.`;
+            } else if (issue.issueType === 'DuplicateRule') {
+                recommendation = `The CSS selector "${issue.selector}" has duplicate rules. Consolidate these rules to avoid conflicts and improve code quality.`;
+            } else if (issue.issueType === 'RedundantSelector') {
+                recommendation = `The CSS selector "${issue.selector}" may be redundant. Review and simplify your CSS structure.`;
+            }
+
             recommendations.push({
                 category: 'css',
                 issueId: `css-${index}`,
                 summary: `${issue.issueType}: ${issue.selector}`,
-                recommendation: issue.description,
-                priority: issue.issueType === 'UnusedSelector' ? 'medium' : 'low',
-                file: analysisResult.metadata.filesAnalyzed.css,
+                recommendation,
+                priority,
+                file: analysisResult.metadata.filesAnalyzed.css || '',
                 line: issue.line,
                 column: issue.column
             });
@@ -572,13 +599,31 @@ export class AIService {
 
         // TypeScript recommendations
         analysisResult.tsIssues.forEach((issue, index) => {
+            // Determine priority based on issue type
+            let priority: 'high' | 'medium' | 'low' = 'medium';
+            if (issue.issueType === 'MissingAwait') {
+                priority = 'high';
+            } else if (issue.issueType === 'UnusedImport') {
+                priority = 'low';
+            }
+
+            // Enhanced recommendation text
+            let recommendation = issue.description;
+            if (issue.issueType === 'UnusedImport') {
+                recommendation = `The import "${issue.identifier}" is not used in this file. Remove it to keep your code clean and reduce bundle size.`;
+            } else if (issue.issueType === 'MissingAwait') {
+                recommendation = `The async function call "${issue.identifier}" is missing an await keyword. This can lead to race conditions and unexpected behavior. Add "await" before this call.`;
+            } else if (issue.issueType === 'DuplicateLogic') {
+                recommendation = `Duplicate logic detected for "${issue.identifier}". Consider extracting this into a reusable function or service to follow DRY principles.`;
+            }
+
             recommendations.push({
                 category: 'typescript',
                 issueId: `ts-${index}`,
                 summary: `${issue.issueType}: ${issue.identifier}`,
-                recommendation: issue.description,
-                priority: issue.issueType === 'MissingAwait' ? 'high' : 'medium',
-                file: analysisResult.metadata.filesAnalyzed.typescript,
+                recommendation,
+                priority,
+                file: analysisResult.metadata.filesAnalyzed.typescript || '',
                 line: issue.line,
                 column: issue.column
             });
@@ -588,13 +633,24 @@ export class AIService {
         analysisResult.templateIssues.forEach((issue, index) => {
             const priority = issue.severity === 'High' ? 'high' : 
                            issue.severity === 'Medium' ? 'medium' : 'low';
+            
+            // Enhanced recommendation text
+            let recommendation = issue.description;
+            if (issue.issueType === 'DeepNesting') {
+                recommendation = `Deep nesting detected in the template. ${issue.description} Consider flattening the structure or extracting nested content into separate components for better performance and maintainability.`;
+            } else if (issue.issueType === 'HeavyPipe') {
+                recommendation = `Heavy pipe usage detected. ${issue.description} Consider using memoization or moving the transformation to the component class to improve performance.`;
+            } else if (issue.issueType === 'RedundantWrapper') {
+                recommendation = `Redundant wrapper element detected. ${issue.description} Simplify the template structure by removing unnecessary wrapper elements.`;
+            }
+
             recommendations.push({
                 category: 'template',
                 issueId: `template-${index}`,
                 summary: `${issue.issueType} at line ${issue.line}`,
-                recommendation: issue.description,
+                recommendation,
                 priority,
-                file: analysisResult.metadata.filesAnalyzed.html,
+                file: analysisResult.metadata.filesAnalyzed.html || '',
                 line: issue.line,
                 column: 1
             });
