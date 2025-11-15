@@ -1,0 +1,20 @@
+.data-container {
+  padding: 20px;
+}
+
+.loading {
+  text-align: center;
+  color: #999;
+}
+
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-item {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}

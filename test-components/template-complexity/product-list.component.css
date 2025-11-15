@@ -1,0 +1,39 @@
+.product-catalog {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.category {
+  margin-bottom: 30px;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.product {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.variant {
+  display: inline-block;
+  margin: 5px;
+  padding: 8px 12px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.discounted-products {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #fff3cd;
+  border-radius: 8px;
+}
+
+.wrapper {
+  margin-top: 20px;
+}

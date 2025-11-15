@@ -1,0 +1,20 @@
+{
+  "win": {
+    "binary": "analyzer-win.exe",
+    "checksum": "mock-checksum-win",
+    "size": 1024,
+    "buildDate": "2025-11-15T10:30:00.000Z"
+  },
+  "macos": {
+    "binary": "analyzer-macos",
+    "checksum": "mock-checksum-macos",
+    "size": 1024,
+    "buildDate": "2025-11-15T10:30:00.000Z"
+  },
+  "linux": {
+    "binary": "analyzer-linux",
+    "checksum": "mock-checksum-linux",
+    "size": 1024,
+    "buildDate": "2025-11-15T10:30:00.000Z"
+  }
+}

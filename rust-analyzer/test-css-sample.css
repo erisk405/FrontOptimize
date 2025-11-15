@@ -1,0 +1,29 @@
+/* Sample CSS for testing */
+.used-class {
+  color: red;
+}
+
+.unused-class {
+  background: blue;
+}
+
+.btn {
+  padding: 10px;
+}
+
+.btn.primary {
+  background: blue;
+}
+
+/* Duplicate selector */
+.used-class {
+  font-size: 14px;
+}
+
+#my-id {
+  margin: 20px;
+}
+
+.another-unused {
+  border: 1px solid black;
+}

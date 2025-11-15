@@ -1,0 +1,8 @@
+node_modules
+out
+dist
+*.vsix
+.vscode-test
+rust-analyzer/target
+rust-analyzer/bin/*.exe
+rust-analyzer/bin/analyzer-*

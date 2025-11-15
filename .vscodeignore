@@ -1,0 +1,46 @@
+# Development files
+.vscode/**
+.vscode-test/**
+.github/**
+src/**
+scripts/**
+out/**
+.kiro/**
+
+# Configuration files
+.gitignore
+.yarnrc
+webpack.config.js
+**/tsconfig.json
+**/.eslintrc.json
+BUILD.md
+PACKAGING.md
+PROJECT_STRUCTURE.md
+
+# Source maps and TypeScript
+**/*.map
+**/*.ts
+!dist/**/*.d.ts
+
+# Rust source and build artifacts
+rust-analyzer/**
+!rust-analyzer/bin/**
+
+# Documentation (keep only essential)
+*_SUMMARY.md
+*_GUIDE.md
+*_IMPLEMENTATION.md
+
+# Node modules (should be bundled)
+node_modules/**
+
+# Test files
+**/*.test.js
+**/*.test.ts
+test/**
+
+# Misc
+.DS_Store
+*.log
+*.vsix
+icon.png.placeholder

@@ -1,0 +1,30 @@
+<div class="container">
+  <div *ngFor="let item of items">
+    <div *ngFor="let subItem of item.children">
+      <div *ngFor="let deepItem of subItem.nested">
+        <!-- This should trigger deep nesting warning -->
+        <span>{{ deepItem.name | uppercase | slice:0:10 | lowercase }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div>
+      <div>
+        <!-- Redundant wrappers without attributes -->
+      </div>
+    </div>
+  </div>
+
+  <ul>
+    <li *ngFor="let user of users">
+      {{ user.name | titlecase }}
+      <!-- Pipe in loop should trigger warning -->
+    </li>
+  </ul>
+
+  <div>
+    {{ (getData() ? value1 : value2) | async | json }}
+    <!-- Complex expression with pipes -->
+  </div>
+</div>

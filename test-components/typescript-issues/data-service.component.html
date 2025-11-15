@@ -1,0 +1,14 @@
+<div class="data-container">
+  <h2>User Data Service</h2>
+  
+  <div *ngIf="loading" class="loading">
+    Loading...
+  </div>
+  
+  <div *ngIf="!loading" class="user-list">
+    <div *ngFor="let user of users" class="user-item">
+      <span>{{ user.name }}</span>
+      <span>{{ user.email }}</span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,55 @@
+<div class="product-catalog">
+  <h1>Product Catalog</h1>
+  
+  <!-- Deep nesting issue: 3 levels of *ngFor -->
+  <div *ngFor="let category of categories" class="category">
+    <h2>{{ category.name }}</h2>
+    
+    <div *ngFor="let product of category.products" class="product">
+      <h3>{{ product.name }}</h3>
+      <p>{{ product.price | currency }}</p>
+      
+      <!-- Third level of nesting - exceeds max depth of 2 -->
+      <div *ngFor="let variant of product.variants" class="variant">
+        <span>{{ variant.color }}</span>
+        <span>{{ variant.size }}</span>
+        <span>Stock: {{ variant.stock }}</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Heavy pipe usage in loops -->
+  <div class="discounted-products">
+    <h2>Discounted Items</h2>
+    <div *ngFor="let category of categories">
+      <div *ngFor="let product of category.products">
+        <!-- Multiple pipes in loop - performance issue -->
+        <p>{{ product.name | uppercase | slice:0:20 }}</p>
+        <p>{{ product.price | currency:'USD':'symbol':'1.2-2' }}</p>
+        <p>Discount: {{ calculateDiscount(product.price) | currency }}</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Redundant wrapper elements -->
+  <div class="wrapper">
+    <div>
+      <div>
+        <div>
+          <div>
+            <p>Too many nested divs without purpose</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- More redundant wrappers -->
+  <div>
+    <div>
+      <div>
+        <span>Excessive nesting</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,212 @@
+name: Cross-Platform Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [18.x]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          rust-analyzer/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install Node dependencies
+      run: npm ci
+    
+    - name: Build Rust binary
+      run: npm run build-rust
+      working-directory: .
+    
+    - name: Make binary executable (Unix)
+      if: runner.os != 'Windows'
+      run: chmod +x dist/bin/analyzer
+    
+    - name: Verify binary exists (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        if (Test-Path dist\bin\analyzer.exe) {
+          Write-Host "Binary exists"
+          Get-Item dist\bin\analyzer.exe | Select-Object Name, Length
+        } else {
+          Write-Error "Binary not found"
+          exit 1
+        }
+      shell: pwsh
+    
+    - name: Verify binary exists (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        if [ -f dist/bin/analyzer ]; then
+          echo "Binary exists"
+          ls -lh dist/bin/analyzer
+          file dist/bin/analyzer
+        else
+          echo "Binary not found"
+          exit 1
+        fi
+      shell: bash
+    
+    - name: Lint TypeScript
+      run: npm run lint
+      continue-on-error: true
+    
+    - name: Compile TypeScript
+      run: npm run compile
+    
+    - name: Compile Tests
+      run: npm run compile-tests
+    
+    - name: Run tests
+      run: npm test
+      env:
+        AI_MOCK_MODE: true
+      continue-on-error: false
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.os }}
+        path: |
+          test-results/
+          out/
+        retention-days: 7
+    
+    - name: Upload binary artifact
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: analyzer-${{ runner.os }}
+        path: |
+          dist/bin/analyzer*
+        retention-days: 7
+
+  integration-test:
+    name: Integration Test on ${{ matrix.os }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+    
+    - name: Download binary artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: analyzer-${{ runner.os }}
+        path: dist/bin/
+    
+    - name: Make binary executable (Unix)
+      if: runner.os != 'Windows'
+      run: chmod +x dist/bin/analyzer
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Compile extension
+      run: npm run compile
+    
+    - name: Test with sample components
+      run: |
+        echo "Testing analyzer with sample components"
+        node -e "
+        const { RustAnalyzerRunner } = require('./dist/services/rustAnalyzerRunner');
+        const path = require('path');
+        const binaryName = process.platform === 'win32' ? 'analyzer.exe' : 'analyzer';
+        const binaryPath = path.join(__dirname, 'dist', 'bin', binaryName);
+        const analyzer = new RustAnalyzerRunner(binaryPath);
+        analyzer.checkBinaryExists().then(exists => {
+          console.log('Binary exists:', exists);
+          if (!exists) process.exit(1);
+        });
+        "
+      shell: bash
+
+  package:
+    name: Package Extension
+    needs: [test, integration-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+    
+    - name: Download all binaries
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+    
+    - name: Organize binaries
+      run: |
+        mkdir -p dist/bin
+        cp artifacts/analyzer-Linux/analyzer dist/bin/analyzer-linux || true
+        cp artifacts/analyzer-macOS/analyzer dist/bin/analyzer-macos || true
+        cp artifacts/analyzer-Windows/analyzer.exe dist/bin/analyzer-win.exe || true
+        ls -la dist/bin/
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Package extension
+      run: npm run package-extension
+    
+    - name: Upload VSIX
+      uses: actions/upload-artifact@v3
+      with:
+        name: vsix-package
+        path: '*.vsix'
+        retention-days: 30

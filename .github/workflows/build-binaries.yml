@@ -1,0 +1,156 @@
+name: Build Rust Binaries
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            binary: analyzer-win.exe
+            platform: win
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: analyzer-macos
+            platform: macos
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: analyzer-linux
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: rust-analyzer/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Rust binary
+        run: |
+          cd rust-analyzer
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Copy and prepare binary
+        shell: bash
+        run: |
+          mkdir -p rust-analyzer/bin
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp rust-analyzer/target/${{ matrix.target }}/release/angular-analyzer.exe rust-analyzer/bin/${{ matrix.binary }}
+          else
+            cp rust-analyzer/target/${{ matrix.target }}/release/angular-analyzer rust-analyzer/bin/${{ matrix.binary }}
+            chmod +x rust-analyzer/bin/${{ matrix.binary }}
+          fi
+
+      - name: Generate checksum
+        shell: bash
+        run: |
+          cd rust-analyzer/bin
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            certutil -hashfile ${{ matrix.binary }} SHA256 | findstr /v ":" | findstr /v "CertUtil" > ${{ matrix.binary }}.sha256
+          else
+            shasum -a 256 ${{ matrix.binary }} > ${{ matrix.binary }}.sha256
+          fi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform }}-binary
+          path: |
+            rust-analyzer/bin/${{ matrix.binary }}
+            rust-analyzer/bin/${{ matrix.binary }}.sha256
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Organize binaries
+        run: |
+          mkdir -p rust-analyzer/bin
+          cp artifacts/win-binary/* rust-analyzer/bin/ || true
+          cp artifacts/macos-binary/* rust-analyzer/bin/ || true
+          cp artifacts/linux-binary/* rust-analyzer/bin/ || true
+          ls -la rust-analyzer/bin/
+
+      - name: Generate checksums.json
+        run: |
+          node -e "
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const path = require('path');
+          
+          const binDir = 'rust-analyzer/bin';
+          const checksums = {};
+          
+          const platforms = [
+            { key: 'win', binary: 'analyzer-win.exe' },
+            { key: 'macos', binary: 'analyzer-macos' },
+            { key: 'linux', binary: 'analyzer-linux' }
+          ];
+          
+          platforms.forEach(({ key, binary }) => {
+            const filePath = path.join(binDir, binary);
+            if (fs.existsSync(filePath)) {
+              const fileBuffer = fs.readFileSync(filePath);
+              const hashSum = crypto.createHash('sha256');
+              hashSum.update(fileBuffer);
+              const checksum = hashSum.digest('hex');
+              const size = fs.statSync(filePath).size;
+              
+              checksums[key] = {
+                binary,
+                checksum,
+                size,
+                buildDate: new Date().toISOString()
+              };
+            }
+          });
+          
+          fs.writeFileSync(path.join(binDir, 'checksums.json'), JSON.stringify(checksums, null, 2));
+          console.log('Checksums generated:', checksums);
+          "
+
+      - name: Upload combined binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: all-binaries
+          path: rust-analyzer/bin/

@@ -1,0 +1,183 @@
+{
+  "name": "ai-frontend-optimizer",
+  "displayName": "AI Frontend Optimizer",
+  "description": "AI-powered Angular component analyzer for code optimization",
+  "version": "0.0.1",
+  "publisher": "gofive",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gofive/ai-frontend-optimizer"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "angular",
+    "optimization",
+    "ai",
+    "code-quality",
+    "analyzer",
+    "typescript",
+    "css",
+    "html"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:html",
+    "onLanguage:css"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiFrontendOptimizer.optimizeFile",
+        "title": "AI Optimize this file"
+      },
+      {
+        "command": "aiFrontendOptimizer.showLogs",
+        "title": "AI Frontend Optimizer: Show Logs"
+      },
+      {
+        "command": "aiFrontendOptimizer.configureApiKey",
+        "title": "AI Frontend Optimizer: Configure API Key"
+      },
+      {
+        "command": "aiFrontendOptimizer.resetConfiguration",
+        "title": "AI Frontend Optimizer: Reset Configuration to Defaults"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "aiFrontendOptimizer.optimizeFile",
+          "when": "resourceExtname =~ /\\.(ts|html|css)$/",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "aiFrontendOptimizer.optimizeFile",
+          "when": "resourceExtname =~ /\\.(ts|html|css)$/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Frontend Optimizer",
+      "properties": {
+        "aiFrontendOptimizer.aiProvider": {
+          "type": "string",
+          "default": "openai",
+          "enum": [
+            "openai",
+            "internal"
+          ],
+          "enumDescriptions": [
+            "Use OpenAI's GPT models for recommendations",
+            "Use internal AI model (requires separate configuration)"
+          ],
+          "description": "AI provider to use for generating optimization recommendations",
+          "order": 1
+        },
+        "aiFrontendOptimizer.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for AI service. Note: This will be migrated to secure storage automatically. For security, use the 'Configure API Key' command instead.",
+          "order": 2,
+          "deprecationMessage": "Use the 'Configure API Key' command to store your API key securely"
+        },
+        "aiFrontendOptimizer.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "enum": [
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo"
+          ],
+          "enumDescriptions": [
+            "GPT-4 - Most capable model with best recommendations",
+            "GPT-4 Turbo - Faster and more cost-effective",
+            "GPT-3.5 Turbo - Fastest and most economical option"
+          ],
+          "description": "AI model to use for generating recommendations",
+          "order": 3
+        },
+        "aiFrontendOptimizer.maxNestingDepth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum allowed nesting depth for loops in Angular templates. Issues will be reported when this threshold is exceeded.",
+          "order": 4
+        },
+        "aiFrontendOptimizer.analyzerTimeout": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "Timeout in seconds for analyzer execution. Increase this value for very large component files.",
+          "order": 5
+        },
+        "aiFrontendOptimizer.enableAutoAnalysis": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically analyze Angular component files when saved. Warning: This may impact performance on large projects.",
+          "order": 6
+        },
+        "aiFrontendOptimizer.skipBinaryVerification": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip binary checksum verification on startup. Only enable this for development or if you're experiencing verification issues.",
+          "order": 7
+        },
+        "aiFrontendOptimizer.verboseLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging for troubleshooting. Logs will include DEBUG level messages in the output channel.",
+          "order": 8
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "build-rust": "node scripts/build-rust.js",
+    "build-rust-all": "node scripts/build-rust-all-platforms.js",
+    "build-all": "npm run build-rust-all && npm run package",
+    "package-extension": "node scripts/package-extension.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/test-electron": "^2.3.8",
+    "copy-webpack-plugin": "^11.0.0",
+    "eslint": "^8.54.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
+}

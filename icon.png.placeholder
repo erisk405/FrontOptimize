@@ -1,0 +1,11 @@
+# Icon Placeholder
+
+This is a placeholder for the extension icon.
+
+To add an icon:
+1. Create a 128x128 PNG image named `icon.png`
+2. Place it in the root directory
+3. Delete this placeholder file
+
+The icon should represent the AI Frontend Optimizer extension and follow VS Code's icon guidelines:
+https://code.visualstudio.com/api/references/extension-manifest#extension-icon
