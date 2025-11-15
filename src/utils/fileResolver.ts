@@ -21,30 +21,50 @@ export async function resolveComponentFiles(uri: vscode.Uri): Promise<ComponentF
     const warnings: string[] = [];
     
     // Validate file extension
-    if (!['.ts', '.html', '.css'].includes(ext)) {
+    if (!['.ts', '.html', '.css','.scss'].includes(ext)) {
         return null;
     }
 
     // Get the base name without extension
     const dir = path.dirname(filePath);
     const fileName = path.basename(filePath, ext);
-
-    // Check if this is a component file (should end with .component)
-    if (!fileName.endsWith('.component')) {
-        return null;
-    }
-
-    // Build potential file paths
     const basePath = path.join(dir, fileName);
-    const tsPath = `${basePath}.ts`;
-    const htmlPath = `${basePath}.html`;
-    const cssPath = `${basePath}.css`;
+
+    // Determine the TypeScript file path
+    let tsPath: string;
+    if (ext === '.ts') {
+        tsPath = filePath; // Use the actual file path
+    } else {
+        // For .html/.css/.scss files, try to find corresponding .ts file
+        // First try with .component.ts, then try with just .ts
+        const componentTsPath = `${basePath}.component.ts`;
+        const regularTsPath = `${basePath}.ts`;
+        
+        const componentTsExists = await checkFileAccess(componentTsPath);
+        const regularTsExists = await checkFileAccess(regularTsPath);
+        
+        if (componentTsExists.exists) {
+            tsPath = componentTsPath;
+        } else if (regularTsExists.exists) {
+            tsPath = regularTsPath;
+        } else {
+            return null;
+        }
+    }
+    
+    // Build HTML and CSS/SCSS paths based on the TypeScript file name
+    const tsBaseName = path.basename(tsPath, '.ts');
+    const tsDir = path.dirname(tsPath);
+    const htmlPath = path.join(tsDir, `${tsBaseName}.html`);
+    const cssPath = path.join(tsDir, `${tsBaseName}.css`);
+    const scssPath = path.join(tsDir, `${tsBaseName}.scss`);
 
     // Check which files exist and are accessible
-    const [tsResult, htmlResult, cssResult] = await Promise.all([
+    const [tsResult, htmlResult, cssResult, scssResult] = await Promise.all([
         checkFileAccess(tsPath),
         checkFileAccess(htmlPath),
-        checkFileAccess(cssPath)
+        checkFileAccess(cssPath),
+        checkFileAccess(scssPath)
     ]);
 
     // TypeScript file is required for a valid component
@@ -73,17 +93,27 @@ export async function resolveComponentFiles(uri: vscode.Uri): Promise<ComponentF
         warnings.push(`HTML template file is not accessible: ${htmlPath}. Permission denied. Analysis will continue without template analysis.`);
     }
 
-    if (!cssResult.exists) {
-        warnings.push(`CSS file not found: ${cssPath}. Analysis will continue without CSS analysis.`);
-    } else if (!cssResult.accessible) {
-        warnings.push(`CSS file is not accessible: ${cssPath}. Permission denied. Analysis will continue without CSS analysis.`);
+    // Check for CSS or SCSS files
+    let styleFile: string | undefined;
+    if (scssResult.exists && scssResult.accessible) {
+        styleFile = scssPath;
+    } else if (cssResult.exists && cssResult.accessible) {
+        styleFile = cssPath;
+    } else {
+        if (!cssResult.exists && !scssResult.exists) {
+            warnings.push(`Style file not found: neither ${cssPath} nor ${scssPath} exists. Analysis will continue without CSS analysis.`);
+        } else if (cssResult.exists && !cssResult.accessible) {
+            warnings.push(`CSS file is not accessible: ${cssPath}. Permission denied. Analysis will continue without CSS analysis.`);
+        } else if (scssResult.exists && !scssResult.accessible) {
+            warnings.push(`SCSS file is not accessible: ${scssPath}. Permission denied. Analysis will continue without CSS analysis.`);
+        }
     }
 
     // Build the ComponentFiles object with only accessible files
     const componentFiles: ComponentFiles = {
         typescript: tsPath,
         html: htmlResult.exists && htmlResult.accessible ? htmlPath : undefined,
-        css: cssResult.exists && cssResult.accessible ? cssPath : undefined
+        css: styleFile
     };
 
     return {

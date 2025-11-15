@@ -30,7 +30,8 @@
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:html",
-    "onLanguage:css"
+    "onLanguage:css",
+    "onLanguage:scss"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -56,14 +57,14 @@
       "explorer/context": [
         {
           "command": "aiFrontendOptimizer.optimizeFile",
-          "when": "resourceExtname =~ /\\.(ts|html|css)$/",
+          "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
           "group": "navigation"
         }
       ],
       "editor/context": [
         {
           "command": "aiFrontendOptimizer.optimizeFile",
-          "when": "resourceExtname =~ /\\.(ts|html|css)$/",
+          "when": "resourceExtname =~ /\\.(ts|html|css|scss)$/",
           "group": "navigation"
         }
       ]
