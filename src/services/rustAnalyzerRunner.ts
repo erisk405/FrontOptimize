@@ -541,6 +541,20 @@ export class RustAnalyzerRunner {
                     line: 12,
                     column: 1,
                     description: "Duplicate color property found. This rule may be redundant."
+                },
+                {
+                    issueType: 'RedundantSelector',
+                    selector: '.btn.button',
+                    line: 15,
+                    column: 1,
+                    description: "Redundant class combination detected. '.btn.button' can be simplified."
+                },
+                {
+                    issueType: 'UnusedSelector',
+                    selector: '#old-id',
+                    line: 20,
+                    column: 1,
+                    description: "CSS selector '#old-id' is not used in the template. Consider removing it."
                 }
             ] : [],
             tsIssues: componentFiles.typescript ? [
@@ -550,6 +564,27 @@ export class RustAnalyzerRunner {
                     column: 10,
                     identifier: 'Observable',
                     description: "Unused import 'Observable' from 'rxjs'. Consider removing if not needed."
+                },
+                {
+                    issueType: 'MissingAwait',
+                    line: 25,
+                    column: 15,
+                    identifier: 'getData()',
+                    description: "Async function call 'getData()' is missing await keyword."
+                },
+                {
+                    issueType: 'DuplicateLogic',
+                    line: 30,
+                    column: 5,
+                    identifier: 'validateForm',
+                    description: "Duplicate form validation logic detected. Consider extracting to a service."
+                },
+                {
+                    issueType: 'UnusedImport',
+                    line: 5,
+                    column: 10,
+                    identifier: 'HttpClient',
+                    description: "Unused import 'HttpClient' from '@angular/common/http'."
                 }
             ] : [],
             templateIssues: componentFiles.html ? [
@@ -564,6 +599,18 @@ export class RustAnalyzerRunner {
                     line: 10,
                     description: "Nested div without attributes detected. Consider removing unnecessary wrapper elements.",
                     severity: 'Medium'
+                },
+                {
+                    issueType: 'HeavyPipe',
+                    line: 18,
+                    description: "Complex pipe chain detected. Consider moving transformation to component class.",
+                    severity: 'Medium'
+                },
+                {
+                    issueType: 'DeepNesting',
+                    line: 22,
+                    description: "Deeply nested *ngFor detected. Consider flattening data structure.",
+                    severity: 'High'
                 }
             ] : [],
             metadata: {

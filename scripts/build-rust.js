@@ -28,8 +28,12 @@ function calculateChecksum(filePath) {
 }
 
 try {
-  // Build in release mode
-  execSync('cargo build --release', {
+  // Build in release mode with MSVC target for Windows
+  const buildCommand = platform === 'win32' 
+    ? 'cargo build --release --target x86_64-pc-windows-msvc'
+    : 'cargo build --release';
+  
+  execSync(buildCommand, {
     cwd: RUST_DIR,
     stdio: 'inherit'
   });
@@ -39,7 +43,7 @@ try {
   let destBinary;
 
   if (platform === 'win32') {
-    sourceBinary = path.join(RUST_DIR, 'target', 'release', 'angular-analyzer.exe');
+    sourceBinary = path.join(RUST_DIR, 'target', 'x86_64-pc-windows-msvc', 'release', 'angular-analyzer.exe');
     destBinary = path.join(BIN_DIR, 'analyzer-win.exe');
   } else if (platform === 'darwin') {
     sourceBinary = path.join(RUST_DIR, 'target', 'release', 'angular-analyzer');

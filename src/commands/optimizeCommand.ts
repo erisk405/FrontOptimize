@@ -185,6 +185,14 @@ async function optimizeFileInternal(
                 // Initialize AI service
                 logger.debug('Initializing AI service');
                 const aiService = new AIService(context);
+                
+                // Initialize the AI provider
+                try {
+                    await aiService.initializeProvider();
+                    logger.debug('AI provider initialized successfully');
+                } catch (error) {
+                    logger.error('Failed to initialize AI provider', error);
+                }
 
                 // Check if AI is configured
                 const isAIConfigured = await aiService.isConfigured();

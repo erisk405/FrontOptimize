@@ -59,7 +59,7 @@ export class AnthropicProvider implements AIProvider {
                     headers: {
                         'x-api-key': this.apiKey,
                         'Content-Type': 'application/json',
-                        'anthropic-version': '2023-06-01'
+                        'anthropic-version': '2025-10-16'
                     },
                     timeout: this.timeout,
                     // Support cancellation via axios
@@ -352,6 +352,7 @@ export class AIService {
         progressCallback?: (message: string) => void
     ): Promise<AIRecommendation[]> {
         try {
+            console.log("codesnipet",codeSnippets)
             // Check for cancellation before starting
             if (cancellationToken?.isCancellationRequested) {
                 throw new Error('AI processing cancelled by user');
@@ -386,6 +387,7 @@ export class AIService {
                 progressCallback('Requesting AI recommendations...');
             }
             const aiResponse = await this.provider.generateRecommendations(prompt, context, cancellationToken);
+            console.log("aiResponse",aiResponse)
 
             // Check for cancellation after AI call
             if (cancellationToken?.isCancellationRequested) {
