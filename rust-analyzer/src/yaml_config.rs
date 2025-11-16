@@ -21,16 +21,19 @@ impl ComponentMapping {
     pub fn from_file(path: &Path) -> Result<Self, String> {
         // Check if file exists
         if !path.exists() {
-            return Err(format!("YAML configuration file not found: {}", path.display()));
+            return Err(format!(
+                "YAML configuration file not found: {}",
+                path.display()
+            ));
         }
 
         // Read file content
-        let content = fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read YAML file: {}", e))?;
+        let content =
+            fs::read_to_string(path).map_err(|e| format!("Failed to read YAML file: {}", e))?;
 
         // Parse YAML
-        let mapping: ComponentMapping = serde_yaml::from_str(&content)
-            .map_err(|e| format!("Failed to parse YAML: {}", e))?;
+        let mapping: ComponentMapping =
+            serde_yaml::from_str(&content).map_err(|e| format!("Failed to parse YAML: {}", e))?;
 
         // Validate that we have at least one component
         if mapping.components.is_empty() {
@@ -42,9 +45,12 @@ impl ComponentMapping {
 
     /// Find a matching component for a given element tag name
     /// Returns the component name and definition if a match is found
-    pub fn find_matching_component(&self, element_tag: &str) -> Option<(&String, &ComponentDefinition)> {
+    pub fn find_matching_component(
+        &self,
+        element_tag: &str,
+    ) -> Option<(&String, &ComponentDefinition)> {
         let element_lower = element_tag.to_lowercase();
-        
+
         // First, try exact keyword match
         for (component_name, definition) in &self.components {
             for keyword in &definition.keywords {
@@ -58,7 +64,8 @@ impl ComponentMapping {
         for (component_name, definition) in &self.components {
             for keyword in &definition.keywords {
                 let keyword_lower = keyword.to_lowercase();
-                if keyword_lower.contains(&element_lower) || element_lower.contains(&keyword_lower) {
+                if keyword_lower.contains(&element_lower) || element_lower.contains(&keyword_lower)
+                {
                     return Some((component_name, definition));
                 }
             }
@@ -70,14 +77,17 @@ impl ComponentMapping {
     /// Find all matching components for a given element tag name
     /// Returns a vector of (component_name, definition, priority) tuples
     /// Priority is based on match quality: exact match = 3, contains = 2, contained = 1
-    pub fn find_all_matching_components(&self, element_tag: &str) -> Vec<(&String, &ComponentDefinition, u8)> {
+    pub fn find_all_matching_components(
+        &self,
+        element_tag: &str,
+    ) -> Vec<(&String, &ComponentDefinition, u8)> {
         let element_lower = element_tag.to_lowercase();
         let mut matches = Vec::new();
 
         for (component_name, definition) in &self.components {
             for keyword in &definition.keywords {
                 let keyword_lower = keyword.to_lowercase();
-                
+
                 // Exact match - highest priority
                 if keyword_lower == element_lower {
                     matches.push((component_name, definition, 3u8));
@@ -123,9 +133,9 @@ components:
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
-        
+
         let mapping = ComponentMapping::from_file(temp_file.path()).unwrap();
-        
+
         assert_eq!(mapping.components.len(), 2);
         assert!(mapping.components.contains_key("go5-button"));
         assert!(mapping.components.contains_key("go5-input"));
@@ -144,7 +154,7 @@ components:
         );
 
         let mapping = ComponentMapping { components };
-        
+
         let result = mapping.find_matching_component("button");
         assert!(result.is_some());
         assert_eq!(result.unwrap().0, "go5-button");
@@ -163,7 +173,7 @@ components:
         );
 
         let mapping = ComponentMapping { components };
-        
+
         let result = mapping.find_matching_component("div");
         assert!(result.is_none());
     }
@@ -189,7 +199,7 @@ components:
         );
 
         let mapping = ComponentMapping { components };
-        
+
         let matches = mapping.find_all_matching_components("button");
         assert!(!matches.is_empty());
         // Exact match should be first

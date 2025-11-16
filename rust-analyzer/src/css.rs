@@ -1,8 +1,8 @@
-use lightningcss::stylesheet::{ParserOptions, StyleSheet};
+use lightningcss::declaration::DeclarationBlock;
+use lightningcss::properties::Property;
 use lightningcss::rules::CssRule;
 use lightningcss::selector::{Component, Selector};
-use lightningcss::properties::Property;
-use lightningcss::declaration::DeclarationBlock;
+use lightningcss::stylesheet::{ParserOptions, StyleSheet};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -75,23 +75,31 @@ struct ClassInfo {
     line: usize,
 }
 
-pub struct CssAnalyzer {
-    stylesheet: StyleSheet<'static, 'static>,
+pub struct CssAnalyzer<'i> {
+    stylesheet: StyleSheet<'i, 'i>,
     selectors: Vec<SelectorInfo>,
     file_path: String,
+    _css_content: String,
 }
 
-impl CssAnalyzer {
+impl<'i> CssAnalyzer<'i> {
     pub fn new(css_content: &str) -> Result<Self, String> {
         Self::new_with_path(css_content, "unknown")
     }
 
     pub fn new_with_path(css_content: &str, file_path: &str) -> Result<Self, String> {
+        // Store the content to ensure it lives long enough
+        let owned_content = css_content.to_string();
+
         // Parse the CSS using lightningcss
-        let stylesheet = StyleSheet::parse(
-            css_content,
-            ParserOptions::default(),
-        ).map_err(|e| format!("CSS parsing error: {:?}", e))?;
+        // SAFETY: We're transmuting the lifetime to make it work with our owned string
+        // The stylesheet will be valid as long as _css_content is kept alive
+        let stylesheet = unsafe {
+            std::mem::transmute::<StyleSheet<'_, '_>, StyleSheet<'i, 'i>>(
+                StyleSheet::parse(&owned_content, ParserOptions::default())
+                    .map_err(|e| format!("CSS parsing error: {:?}", e))?,
+            )
+        };
 
         // Extract all selectors with their line/column information
         let selectors = Self::extract_selectors(&stylesheet);
@@ -100,6 +108,7 @@ impl CssAnalyzer {
             stylesheet,
             selectors,
             file_path: file_path.to_string(),
+            _css_content: owned_content,
         })
     }
 
@@ -157,8 +166,8 @@ impl CssAnalyzer {
     /// Convert a selector to a string representation
     fn selector_to_string(selector: &Selector) -> String {
         let mut result = String::new();
-        
-        for component in &selector.0 {
+
+        for component in selector.iter() {
             match component {
                 Component::Class(class_name) => {
                     result.push('.');
@@ -174,19 +183,16 @@ impl CssAnalyzer {
                 Component::Combinator(combinator) => {
                     result.push_str(&format!(" {:?} ", combinator));
                 }
-                Component::PseudoClass(pseudo) => {
-                    result.push_str(&format!(":{:?}", pseudo));
-                }
                 Component::PseudoElement(pseudo) => {
                     result.push_str(&format!("::{:?}", pseudo));
                 }
-                Component::AttributeInNoNamespace { local_name, operator, value, .. } => {
+                Component::AttributeInNoNamespace {
+                    local_name, value, ..
+                } => {
                     result.push('[');
                     result.push_str(&local_name.0.to_string());
-                    if let Some(op) = operator {
-                        result.push_str(&format!("{:?}", op));
-                        result.push_str(&value.0.to_string());
-                    }
+                    result.push('=');
+                    result.push_str(&value.0.to_string());
                     result.push(']');
                 }
                 _ => {
@@ -195,24 +201,27 @@ impl CssAnalyzer {
                 }
             }
         }
-        
+
         result
     }
 
     /// Extract class names from a selector
     fn extract_classes_from_selector(selector: &Selector) -> Vec<String> {
         let mut classes = Vec::new();
-        
-        for component in &selector.0 {
+
+        for component in selector.iter() {
             if let Component::Class(class_name) = component {
                 classes.push(class_name.0.to_string());
             }
         }
-        
+
         classes
     }
 
-    pub fn find_unused_selectors(&self, html_classes: &std::collections::HashSet<String>) -> Vec<CssIssue> {
+    pub fn find_unused_selectors(
+        &self,
+        html_classes: &std::collections::HashSet<String>,
+    ) -> Vec<CssIssue> {
         let mut issues = Vec::new();
 
         for selector_info in &self.selectors {
@@ -284,7 +293,7 @@ impl CssAnalyzer {
         // Find redundant selectors (selectors that are subsets of others)
         // For example, if we have both ".btn" and ".btn.primary", the first might be redundant
         let selector_texts: Vec<String> = selector_map.keys().cloned().collect();
-        
+
         for (i, selector1) in selector_texts.iter().enumerate() {
             for selector2 in selector_texts.iter().skip(i + 1) {
                 // Check if one selector is a subset of another
@@ -314,32 +323,30 @@ impl CssAnalyzer {
     fn is_redundant_selector(selector1: &str, selector2: &str) -> bool {
         // Simple heuristic: if selector2 contains all parts of selector1 plus more,
         // selector1 might be redundant
-        
+
         // Extract class names from both selectors
         let classes1: HashSet<&str> = selector1
             .split(|c: char| c.is_whitespace() || c == '>' || c == '+' || c == '~')
             .filter(|s| s.starts_with('.'))
             .collect();
-        
+
         let classes2: HashSet<&str> = selector2
             .split(|c: char| c.is_whitespace() || c == '>' || c == '+' || c == '~')
             .filter(|s| s.starts_with('.'))
             .collect();
 
         // If selector1 has classes and all of them are in selector2, and selector2 has more
-        !classes1.is_empty() && 
-        classes1.is_subset(&classes2) && 
-        classes2.len() > classes1.len()
+        !classes1.is_empty() && classes1.is_subset(&classes2) && classes2.len() > classes1.len()
     }
 
     /// Extract all CSS classes with their properties from the stylesheet
     pub fn extract_classes(&self) -> Vec<CssClass> {
         let mut classes = Vec::new();
-        
+
         for rule in &self.stylesheet.rules.0 {
             Self::extract_classes_from_rule(rule, &mut classes, &self.file_path);
         }
-        
+
         classes
     }
 
@@ -349,15 +356,15 @@ impl CssAnalyzer {
             CssRule::Style(style_rule) => {
                 let loc = &style_rule.loc;
                 let line = loc.line as usize;
-                
+
                 // Extract properties from the declaration block
                 let properties = Self::extract_properties(&style_rule.declarations);
-                
+
                 // Process each selector in the rule
                 for selector in &style_rule.selectors.0 {
                     // Extract class names from this selector
                     let class_names = Self::extract_classes_from_selector(selector);
-                    
+
                     // Create a CssClass entry for each class in the selector
                     for class_name in class_names {
                         classes.push(CssClass {
@@ -390,16 +397,16 @@ impl CssAnalyzer {
     /// Extract property-value pairs from a declaration block
     fn extract_properties(declarations: &DeclarationBlock) -> HashMap<String, String> {
         let mut properties = HashMap::new();
-        
+
         for declaration in &declarations.declarations {
             let property_name = Self::property_to_name(&declaration);
             let property_value = Self::property_to_value(&declaration);
-            
+
             if !property_name.is_empty() && !property_value.is_empty() {
                 properties.insert(property_name, property_value);
             }
         }
-        
+
         properties
     }
 
@@ -438,22 +445,26 @@ impl CssAnalyzer {
             Property::Bottom(_) => "bottom".to_string(),
             Property::Left(_) => "left".to_string(),
             Property::ZIndex(_) => "z-index".to_string(),
-            Property::Flex(_) => "flex".to_string(),
-            Property::FlexDirection(_) => "flex-direction".to_string(),
-            Property::JustifyContent(_) => "justify-content".to_string(),
-            Property::AlignItems(_) => "align-items".to_string(),
+            Property::Flex(..) => "flex".to_string(),
+            Property::FlexDirection(..) => "flex-direction".to_string(),
+            Property::JustifyContent(..) => "justify-content".to_string(),
+            Property::AlignItems(..) => "align-items".to_string(),
             Property::Gap(_) => "gap".to_string(),
             Property::Opacity(_) => "opacity".to_string(),
             Property::Cursor(_) => "cursor".to_string(),
             Property::Overflow(_) => "overflow".to_string(),
             Property::OverflowX(_) => "overflow-x".to_string(),
             Property::OverflowY(_) => "overflow-y".to_string(),
-            Property::BoxShadow(_) => "box-shadow".to_string(),
-            Property::TextDecoration(_) => "text-decoration".to_string(),
-            Property::Transform(_) => "transform".to_string(),
-            Property::Transition(_) => "transition".to_string(),
-            Property::Unparsed(unparsed) => unparsed.property_id.to_string(),
-            _ => format!("{:?}", property).split('(').next().unwrap_or("unknown").to_lowercase(),
+            Property::BoxShadow(..) => "box-shadow".to_string(),
+            Property::TextDecoration(..) => "text-decoration".to_string(),
+            Property::Transform(..) => "transform".to_string(),
+            Property::Transition(..) => "transition".to_string(),
+            Property::Unparsed(unparsed) => format!("{:?}", unparsed.property_id),
+            _ => format!("{:?}", property)
+                .split('(')
+                .next()
+                .unwrap_or("unknown")
+                .to_lowercase(),
         }
     }
 
@@ -476,7 +487,7 @@ impl CssAnalyzer {
         if local.properties.is_empty() && base.properties.is_empty() {
             return 100.0;
         }
-        
+
         if local.properties.is_empty() || base.properties.is_empty() {
             return 0.0;
         }
@@ -484,29 +495,31 @@ impl CssAnalyzer {
         // Get all unique property keys from both classes
         let local_keys: HashSet<&String> = local.properties.keys().collect();
         let base_keys: HashSet<&String> = base.properties.keys().collect();
-        
+
         // Calculate intersection: properties that exist in both with the same value
         let mut matching_count = 0;
         for key in local_keys.intersection(&base_keys) {
-            if let (Some(local_val), Some(base_val)) = (local.properties.get(*key), base.properties.get(*key)) {
+            if let (Some(local_val), Some(base_val)) =
+                (local.properties.get(*key), base.properties.get(*key))
+            {
                 // Normalize values for comparison (remove whitespace, lowercase)
                 let local_normalized = local_val.to_lowercase().replace(" ", "");
                 let base_normalized = base_val.to_lowercase().replace(" ", "");
-                
+
                 if local_normalized == base_normalized {
                     matching_count += 1;
                 }
             }
         }
-        
+
         // Calculate union: all unique properties from both classes
         let union_count = local_keys.union(&base_keys).count();
-        
+
         // Jaccard similarity: intersection / union
         if union_count == 0 {
             return 0.0;
         }
-        
+
         (matching_count as f32 / union_count as f32) * 100.0
     }
 
@@ -515,14 +528,14 @@ impl CssAnalyzer {
     pub fn compare_with_base_styles(&self, base_classes: &[CssClass]) -> Vec<SimilarityResult> {
         let local_classes = self.extract_classes();
         let mut results = Vec::new();
-        
+
         for local_class in &local_classes {
             // Find the best matching base class
             let mut best_match: Option<(f32, &CssClass)> = None;
-            
+
             for base_class in base_classes {
                 let similarity = Self::calculate_similarity(local_class, base_class);
-                
+
                 if let Some((best_similarity, _)) = best_match {
                     if similarity > best_similarity {
                         best_match = Some((similarity, base_class));
@@ -531,13 +544,14 @@ impl CssAnalyzer {
                     best_match = Some((similarity, base_class));
                 }
             }
-            
+
             // Generate similarity result if we found a match
             if let Some((similarity_percent, base_class)) = best_match {
                 // Only include results with meaningful similarity (> 0%)
                 if similarity_percent > 0.0 {
-                    let (matching, differing, redundant) = Self::compare_properties(local_class, base_class);
-                    
+                    let (matching, differing, redundant) =
+                        Self::compare_properties(local_class, base_class);
+
                     results.push(SimilarityResult {
                         local_class: local_class.name.clone(),
                         best_match: BestMatch {
@@ -552,20 +566,22 @@ impl CssAnalyzer {
                 }
             }
         }
-        
+
         results
     }
 
     /// Compare properties between local and base classes
     /// Returns (matching, differing, redundant) properties
-    fn compare_properties(local: &CssClass, base: &CssClass) -> (Vec<String>, Vec<PropertyDiff>, Vec<String>) {
+    fn compare_properties(
+        local: &CssClass,
+        base: &CssClass,
+    ) -> (Vec<String>, Vec<PropertyDiff>, Vec<String>) {
         let mut matching = Vec::new();
         let mut differing = Vec::new();
         let mut redundant = Vec::new();
-        
+
         let local_keys: HashSet<&String> = local.properties.keys().collect();
-        let base_keys: HashSet<&String> = base.properties.keys().collect();
-        
+
         // Find matching and differing properties
         for key in &local_keys {
             if let Some(local_val) = local.properties.get(*key) {
@@ -573,7 +589,7 @@ impl CssAnalyzer {
                     // Normalize for comparison
                     let local_normalized = local_val.to_lowercase().replace(" ", "");
                     let base_normalized = base_val.to_lowercase().replace(" ", "");
-                    
+
                     if local_normalized == base_normalized {
                         // Property matches
                         matching.push(format!("{}: {}", key, local_val));
@@ -591,10 +607,10 @@ impl CssAnalyzer {
                 }
             }
         }
-        
+
         // Properties in base but not in local are not redundant, they're missing
         // We don't report those here as they're not redundant in the local class
-        
+
         (matching, differing, redundant)
     }
 }
@@ -602,18 +618,18 @@ impl CssAnalyzer {
 /// Load and parse multiple base style files
 pub fn load_base_styles(file_paths: &[PathBuf]) -> Result<Vec<CssClass>, String> {
     let mut all_classes = Vec::new();
-    
+
     for path in file_paths {
         let content = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
-        
+
         let file_path_str = path.to_string_lossy().to_string();
         let analyzer = CssAnalyzer::new_with_path(&content, &file_path_str)?;
-        
+
         let mut classes = analyzer.extract_classes();
         all_classes.append(&mut classes);
     }
-    
+
     Ok(all_classes)
 }
 
@@ -648,11 +664,14 @@ pub struct ClassReference {
 
 /// Compare multiple base style files to find duplicates and similar classes
 /// Returns a BaseStyleComparison with duplicate classes and similar class pairs
-pub fn compare_multiple_base_files(file_paths: &[PathBuf], similarity_threshold: f32) -> Result<BaseStyleComparison, String> {
+pub fn compare_multiple_base_files(
+    file_paths: &[PathBuf],
+    similarity_threshold: f32,
+) -> Result<BaseStyleComparison, String> {
     // Load and parse all base style files
     let mut all_classes: Vec<CssClass> = Vec::new();
     let mut parse_errors: Vec<String> = Vec::new();
-    
+
     for path in file_paths {
         match std::fs::read_to_string(path) {
             Ok(content) => {
@@ -678,18 +697,21 @@ pub fn compare_multiple_base_files(file_paths: &[PathBuf], similarity_threshold:
             }
         }
     }
-    
+
     // If no classes were successfully loaded, return an error
     if all_classes.is_empty() {
-        return Err(format!("No CSS classes could be loaded from the provided files. Errors: {}", parse_errors.join("; ")));
+        return Err(format!(
+            "No CSS classes could be loaded from the provided files. Errors: {}",
+            parse_errors.join("; ")
+        ));
     }
-    
+
     // Find duplicate classes (same name in different files)
     let duplicates = find_duplicate_classes(&all_classes);
-    
+
     // Find similar classes (different names but similar properties)
     let similar_classes = find_similar_classes(&all_classes, similarity_threshold);
-    
+
     Ok(BaseStyleComparison {
         duplicates,
         similar_classes,
@@ -699,7 +721,7 @@ pub fn compare_multiple_base_files(file_paths: &[PathBuf], similarity_threshold:
 /// Find classes with identical names in different files
 fn find_duplicate_classes(classes: &[CssClass]) -> Vec<DuplicateClass> {
     let mut class_map: HashMap<String, Vec<String>> = HashMap::new();
-    
+
     // Group classes by name and track which files they appear in
     for class in classes {
         class_map
@@ -707,14 +729,18 @@ fn find_duplicate_classes(classes: &[CssClass]) -> Vec<DuplicateClass> {
             .or_insert_with(Vec::new)
             .push(class.file.clone());
     }
-    
+
     // Find classes that appear in multiple files
     let mut duplicates = Vec::new();
     for (class_name, files) in class_map {
         // Remove duplicate file entries (same class defined multiple times in same file)
-        let mut unique_files: Vec<String> = files.into_iter().collect::<HashSet<_>>().into_iter().collect();
+        let mut unique_files: Vec<String> = files
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
         unique_files.sort();
-        
+
         // Only report if the class appears in more than one file
         if unique_files.len() > 1 {
             duplicates.push(DuplicateClass {
@@ -723,36 +749,36 @@ fn find_duplicate_classes(classes: &[CssClass]) -> Vec<DuplicateClass> {
             });
         }
     }
-    
+
     // Sort by class name for consistent output
     duplicates.sort_by(|a, b| a.class_name.cmp(&b.class_name));
-    
+
     duplicates
 }
 
 /// Find classes with different names but similar properties across files
 fn find_similar_classes(classes: &[CssClass], similarity_threshold: f32) -> Vec<SimilarClassPair> {
     let mut similar_pairs = Vec::new();
-    
+
     // Compare each class with every other class
     for i in 0..classes.len() {
         for j in (i + 1)..classes.len() {
             let class1 = &classes[i];
             let class2 = &classes[j];
-            
+
             // Skip if same class name (those are handled by duplicate detection)
             if class1.name == class2.name {
                 continue;
             }
-            
+
             // Skip if from the same file (not cross-file comparison)
             if class1.file == class2.file {
                 continue;
             }
-            
+
             // Calculate similarity
             let similarity = CssAnalyzer::calculate_similarity(class1, class2);
-            
+
             // Only include if similarity exceeds threshold
             if similarity >= similarity_threshold {
                 similar_pairs.push(SimilarClassPair {
@@ -769,11 +795,13 @@ fn find_similar_classes(classes: &[CssClass], similarity_threshold: f32) -> Vec<
             }
         }
     }
-    
+
     // Sort by similarity percentage (highest first)
     similar_pairs.sort_by(|a, b| {
-        b.similarity_percent.partial_cmp(&a.similarity_percent).unwrap_or(std::cmp::Ordering::Equal)
+        b.similarity_percent
+            .partial_cmp(&a.similarity_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
-    
+
     similar_pairs
 }
