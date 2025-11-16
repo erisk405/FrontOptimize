@@ -3,7 +3,7 @@
     "binary": "analyzer-win.exe",
     "checksum": "81fb7abd594ec456f6a26dddcafb42410709138d22b6270200716f58b204b426",
     "size": 7765504,
-    "buildDate": "2025-11-16T09:00:00.516Z"
+    "buildDate": "2025-11-16T11:37:42.630Z"
   },
   "macos": {
     "binary": "analyzer-macos",

@@ -1,193 +1,282 @@
-import * as vscode from 'vscode';
-import { AIRecommendation, AnalysisMetadata, SimilarityResult, ComponentSuggestion } from '../types';
+import * as vscode from "vscode";
+import {
+  AIRecommendation,
+  AnalysisMetadata,
+  SimilarityResult,
+  ComponentSuggestion,
+} from "../types";
 
 export class ResultsPanel {
-    public static currentPanel: ResultsPanel | undefined;
-    private readonly _panel: vscode.WebviewPanel;
-    private readonly _extensionUri: vscode.Uri;
-    private _disposables: vscode.Disposable[] = [];
+  public static currentPanel: ResultsPanel | undefined;
+  private readonly _panel: vscode.WebviewPanel;
+  private readonly _extensionUri: vscode.Uri;
+  private _disposables: vscode.Disposable[] = [];
 
-    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
-        this._panel = panel;
-        this._extensionUri = extensionUri;
+  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    this._panel = panel;
+    this._extensionUri = extensionUri;
 
-        // Set up event handlers
-        this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    // Set up event handlers
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-        // Handle messages from the webview
-        this._panel.webview.onDidReceiveMessage(
-            message => {
-                switch (message.command) {
-                    case 'goToCode':
-                        this._handleGoToCode(message.file, message.line, message.column);
-                        break;
-                    case 'goToBaseClass':
-                        this._handleGoToBaseClass(message.file, message.className);
-                        break;
-                    case 'goToElement':
-                        this._handleGoToCode(message.file, message.line, 1);
-                        break;
-                    case 'compareFiles':
-                        this._handleCompareFiles(message.file1, message.file2, message.class1, message.class2);
-                        break;
-                    case 'dismissIssue':
-                        // Future: Handle issue dismissal
-                        break;
-                }
-            },
-            null,
-            this._disposables
+    // Handle messages from the webview
+    this._panel.webview.onDidReceiveMessage(
+      (message) => {
+        switch (message.command) {
+          case "goToCode":
+            this._handleGoToCode(message.file, message.line, message.column);
+            break;
+          case "goToBaseClass":
+            this._handleGoToBaseClass(message.file, message.className);
+            break;
+          case "goToElement":
+            this._handleGoToCode(message.file, message.line, 1);
+            break;
+          case "compareFiles":
+            this._handleCompareFiles(
+              message.file1,
+              message.file2,
+              message.class1,
+              message.class2,
+            );
+            break;
+          case "dismissIssue":
+            // Future: Handle issue dismissal
+            break;
+        }
+      },
+      null,
+      this._disposables,
+    );
+  }
+
+  public static createOrShow(extensionUri: vscode.Uri): ResultsPanel {
+    // If we already have a panel, show it
+    if (ResultsPanel.currentPanel) {
+      ResultsPanel.currentPanel._panel.reveal(vscode.ViewColumn.Two);
+      return ResultsPanel.currentPanel;
+    }
+
+    // Otherwise, create a new panel
+    const panel = vscode.window.createWebviewPanel(
+      "aiOptimizerResults",
+      "AI Optimizer Results",
+      vscode.ViewColumn.Two,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [extensionUri],
+      },
+    );
+
+    ResultsPanel.currentPanel = new ResultsPanel(panel, extensionUri);
+    return ResultsPanel.currentPanel;
+  }
+
+  public updateResults(
+    recommendations: AIRecommendation[],
+    metadata: AnalysisMetadata,
+    similarityResults?: SimilarityResult[],
+    componentSuggestions?: ComponentSuggestion[],
+    baseStyleComparison?: import("../types").BaseStyleComparisonResult,
+  ): void {
+    this._panel.webview.html = this._getHtmlContent(
+      recommendations,
+      metadata,
+      similarityResults,
+      componentSuggestions,
+      baseStyleComparison,
+    );
+  }
+
+  public updateBaseStyleComparison(
+    result: import("../types").BaseStyleComparisonResult,
+  ): void {
+    // For backward compatibility, also support showing base style comparison in standalone view
+    this._panel.webview.html = this._getBaseStyleComparisonHtml(result);
+  }
+
+  public dispose(): void {
+    ResultsPanel.currentPanel = undefined;
+
+    this._panel.dispose();
+
+    while (this._disposables.length) {
+      const disposable = this._disposables.pop();
+      if (disposable) {
+        disposable.dispose();
+      }
+    }
+  }
+
+  private async _handleGoToCode(
+    file: string,
+    line: number,
+    column: number,
+  ): Promise<void> {
+    try {
+      // Validate file path
+      if (!file || file.trim().length === 0) {
+        vscode.window.showWarningMessage(
+          "No file path available for this issue",
         );
+        return;
+      }
+
+      // Check if file path looks valid (not just a directory separator)
+      if (file === "\\" || file === "/" || file === ".") {
+        vscode.window.showWarningMessage("Invalid file path");
+        return;
+      }
+
+      const document = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(
+        document,
+        vscode.ViewColumn.One,
+      );
+
+      // Convert to 0-based indexing
+      const position = new vscode.Position(
+        Math.max(0, line - 1),
+        Math.max(0, column - 1),
+      );
+      const range = new vscode.Range(position, position);
+
+      // Reveal the line and select it
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to open file: ${error}`);
     }
+  }
 
-    public static createOrShow(extensionUri: vscode.Uri): ResultsPanel {
-        // If we already have a panel, show it
-        if (ResultsPanel.currentPanel) {
-            ResultsPanel.currentPanel._panel.reveal(vscode.ViewColumn.Two);
-            return ResultsPanel.currentPanel;
-        }
+  private async _handleGoToBaseClass(
+    file: string,
+    className: string,
+  ): Promise<void> {
+    try {
+      const document = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(
+        document,
+        vscode.ViewColumn.One,
+      );
 
-        // Otherwise, create a new panel
-        const panel = vscode.window.createWebviewPanel(
-            'aiOptimizerResults',
-            'AI Optimizer Results',
-            vscode.ViewColumn.Two,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [extensionUri]
-            }
+      // Search for the class name in the document
+      const text = document.getText();
+      const classPattern = new RegExp(
+        `\\.${className.replace(".", "\\.")}\\s*\\{`,
+        "g",
+      );
+      const match = classPattern.exec(text);
+
+      if (match) {
+        const position = document.positionAt(match.index);
+        const range = new vscode.Range(position, position);
+
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+      } else {
+        // If exact match not found, just open the file
+        vscode.window.showInformationMessage(
+          `Opened ${file}, but couldn't find class ${className}`,
         );
-
-        ResultsPanel.currentPanel = new ResultsPanel(panel, extensionUri);
-        return ResultsPanel.currentPanel;
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to open file: ${error}`);
     }
+  }
 
-    public updateResults(recommendations: AIRecommendation[], metadata: AnalysisMetadata, similarityResults?: SimilarityResult[], componentSuggestions?: ComponentSuggestion[], baseStyleComparison?: import('../types').BaseStyleComparisonResult): void {
-        this._panel.webview.html = this._getHtmlContent(recommendations, metadata, similarityResults, componentSuggestions, baseStyleComparison);
-    }
+  private async _handleCompareFiles(
+    file1: string,
+    file2: string,
+    class1?: string,
+    class2?: string,
+  ): Promise<void> {
+    try {
+      // Open both files side by side
+      const doc1 = await vscode.workspace.openTextDocument(file1);
+      const doc2 = await vscode.workspace.openTextDocument(file2);
 
-    public updateBaseStyleComparison(result: import('../types').BaseStyleComparisonResult): void {
-        // For backward compatibility, also support showing base style comparison in standalone view
-        this._panel.webview.html = this._getBaseStyleComparisonHtml(result);
-    }
+      // Show first file in column one
+      const editor1 = await vscode.window.showTextDocument(
+        doc1,
+        vscode.ViewColumn.One,
+      );
 
-    public dispose(): void {
-        ResultsPanel.currentPanel = undefined;
+      // Show second file in column two
+      const editor2 = await vscode.window.showTextDocument(
+        doc2,
+        vscode.ViewColumn.Two,
+      );
 
-        this._panel.dispose();
+      // If class names are provided, try to navigate to them
+      if (class1) {
+        const text1 = doc1.getText();
+        const classPattern1 = new RegExp(
+          `\\.${class1.replace(".", "\\.")}\\s*\\{`,
+          "g",
+        );
+        const match1 = classPattern1.exec(text1);
 
-        while (this._disposables.length) {
-            const disposable = this._disposables.pop();
-            if (disposable) {
-                disposable.dispose();
-            }
+        if (match1) {
+          const position1 = doc1.positionAt(match1.index);
+          const range1 = new vscode.Range(position1, position1);
+          editor1.selection = new vscode.Selection(position1, position1);
+          editor1.revealRange(range1, vscode.TextEditorRevealType.InCenter);
         }
-    }
+      }
 
-    private async _handleGoToCode(file: string, line: number, column: number): Promise<void> {
-        try {
-            const document = await vscode.workspace.openTextDocument(file);
-            const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
-            
-            // Convert to 0-based indexing
-            const position = new vscode.Position(Math.max(0, line - 1), Math.max(0, column - 1));
-            const range = new vscode.Range(position, position);
-            
-            // Reveal the line and select it
-            editor.selection = new vscode.Selection(position, position);
-            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+      if (class2) {
+        const text2 = doc2.getText();
+        const classPattern2 = new RegExp(
+          `\\.${class2.replace(".", "\\.")}\\s*\\{`,
+          "g",
+        );
+        const match2 = classPattern2.exec(text2);
+
+        if (match2) {
+          const position2 = doc2.positionAt(match2.index);
+          const range2 = new vscode.Range(position2, position2);
+          editor2.selection = new vscode.Selection(position2, position2);
+          editor2.revealRange(range2, vscode.TextEditorRevealType.InCenter);
         }
+      }
+
+      vscode.window.showInformationMessage(
+        "Files opened side by side for comparison",
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to compare files: ${error}`);
     }
+  }
 
-    private async _handleGoToBaseClass(file: string, className: string): Promise<void> {
-        try {
-            const document = await vscode.workspace.openTextDocument(file);
-            const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
-            
-            // Search for the class name in the document
-            const text = document.getText();
-            const classPattern = new RegExp(`\\.${className.replace('.', '\\.')}\\s*\\{`, 'g');
-            const match = classPattern.exec(text);
-            
-            if (match) {
-                const position = document.positionAt(match.index);
-                const range = new vscode.Range(position, position);
-                
-                editor.selection = new vscode.Selection(position, position);
-                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-            } else {
-                // If exact match not found, just open the file
-                vscode.window.showInformationMessage(`Opened ${file}, but couldn't find class ${className}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to open file: ${error}`);
-        }
-    }
+  private _getHtmlContent(
+    recommendations: AIRecommendation[],
+    metadata: AnalysisMetadata,
+    similarityResults?: SimilarityResult[],
+    componentSuggestions?: ComponentSuggestion[],
+    baseStyleComparison?: import("../types").BaseStyleComparisonResult,
+  ): string {
+    // Group recommendations by category
+    const cssRecs = recommendations.filter((r) => r.category === "css");
+    const tsRecs = recommendations.filter((r) => r.category === "typescript");
+    const templateRecs = recommendations.filter(
+      (r) => r.category === "template",
+    );
 
-    private async _handleCompareFiles(file1: string, file2: string, class1?: string, class2?: string): Promise<void> {
-        try {
-            // Open both files side by side
-            const doc1 = await vscode.workspace.openTextDocument(file1);
-            const doc2 = await vscode.workspace.openTextDocument(file2);
-            
-            // Show first file in column one
-            const editor1 = await vscode.window.showTextDocument(doc1, vscode.ViewColumn.One);
-            
-            // Show second file in column two
-            const editor2 = await vscode.window.showTextDocument(doc2, vscode.ViewColumn.Two);
-            
-            // If class names are provided, try to navigate to them
-            if (class1) {
-                const text1 = doc1.getText();
-                const classPattern1 = new RegExp(`\\.${class1.replace('.', '\\.')}\\s*\\{`, 'g');
-                const match1 = classPattern1.exec(text1);
-                
-                if (match1) {
-                    const position1 = doc1.positionAt(match1.index);
-                    const range1 = new vscode.Range(position1, position1);
-                    editor1.selection = new vscode.Selection(position1, position1);
-                    editor1.revealRange(range1, vscode.TextEditorRevealType.InCenter);
-                }
-            }
-            
-            if (class2) {
-                const text2 = doc2.getText();
-                const classPattern2 = new RegExp(`\\.${class2.replace('.', '\\.')}\\s*\\{`, 'g');
-                const match2 = classPattern2.exec(text2);
-                
-                if (match2) {
-                    const position2 = doc2.positionAt(match2.index);
-                    const range2 = new vscode.Range(position2, position2);
-                    editor2.selection = new vscode.Selection(position2, position2);
-                    editor2.revealRange(range2, vscode.TextEditorRevealType.InCenter);
-                }
-            }
-            
-            vscode.window.showInformationMessage('Files opened side by side for comparison');
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to compare files: ${error}`);
-        }
-    }
+    // Format timestamp
+    const timestamp = new Date(metadata.analyzedAt).toLocaleString();
 
-    private _getHtmlContent(recommendations: AIRecommendation[], metadata: AnalysisMetadata, similarityResults?: SimilarityResult[], componentSuggestions?: ComponentSuggestion[], baseStyleComparison?: import('../types').BaseStyleComparisonResult): string {
-        // Group recommendations by category
-        const cssRecs = recommendations.filter(r => r.category === 'css');
-        const tsRecs = recommendations.filter(r => r.category === 'typescript');
-        const templateRecs = recommendations.filter(r => r.category === 'template');
+    const hasSimilarityResults =
+      similarityResults && similarityResults.length > 0;
+    const hasComponentSuggestions =
+      componentSuggestions && componentSuggestions.length > 0;
+    const hasBaseStyleComparison =
+      baseStyleComparison &&
+      (baseStyleComparison.baseStyleComparison.duplicates.length > 0 ||
+        baseStyleComparison.baseStyleComparison.similarClasses.length > 0);
 
-        // Format timestamp
-        const timestamp = new Date(metadata.analyzedAt).toLocaleString();
-
-        const hasSimilarityResults = similarityResults && similarityResults.length > 0;
-        const hasComponentSuggestions = componentSuggestions && componentSuggestions.length > 0;
-        const hasBaseStyleComparison = baseStyleComparison && 
-            (baseStyleComparison.baseStyleComparison.duplicates.length > 0 || 
-             baseStyleComparison.baseStyleComparison.similarClasses.length > 0);
-
-        return `
+    return `
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -219,52 +308,76 @@ export class ResultsPanel {
                         <button class="tab-button" data-tab="template">
                             Template Issues <span class="badge">${templateRecs.length}</span>
                         </button>
-                        ${hasSimilarityResults ? `
+                        ${
+                          hasSimilarityResults
+                            ? `
                         <button class="tab-button" data-tab="similarity">
                             Similarity Analysis <span class="badge">${similarityResults.length}</span>
                         </button>
-                        ` : ''}
-                        ${hasComponentSuggestions ? `
+                        `
+                            : ""
+                        }
+                        ${
+                          hasComponentSuggestions
+                            ? `
                         <button class="tab-button" data-tab="components">
                             Component Suggestions <span class="badge">${componentSuggestions.length}</span>
                         </button>
-                        ` : ''}
-                        ${hasBaseStyleComparison ? `
+                        `
+                            : ""
+                        }
+                        ${
+                          hasBaseStyleComparison
+                            ? `
                         <button class="tab-button" data-tab="basestyle">
                             Base Style Comparison <span class="badge">${baseStyleComparison.baseStyleComparison.duplicates.length + baseStyleComparison.baseStyleComparison.similarClasses.length}</span>
                         </button>
-                        ` : ''}
+                        `
+                            : ""
+                        }
                     </div>
 
                     <div class="tab-content active" id="css-tab">
-                        ${this._renderIssues(cssRecs, metadata, 'css')}
+                        ${this._renderIssues(cssRecs, metadata, "css")}
                     </div>
 
                     <div class="tab-content" id="typescript-tab">
-                        ${this._renderIssues(tsRecs, metadata, 'typescript')}
+                        ${this._renderIssues(tsRecs, metadata, "typescript")}
                     </div>
 
                     <div class="tab-content" id="template-tab">
-                        ${this._renderIssues(templateRecs, metadata, 'template')}
+                        ${this._renderIssues(templateRecs, metadata, "template")}
                     </div>
 
-                    ${hasSimilarityResults ? `
+                    ${
+                      hasSimilarityResults
+                        ? `
                     <div class="tab-content" id="similarity-tab">
                         ${this._renderSimilarityResults(similarityResults, metadata)}
                     </div>
-                    ` : ''}
+                    `
+                        : ""
+                    }
 
-                    ${hasComponentSuggestions ? `
+                    ${
+                      hasComponentSuggestions
+                        ? `
                     <div class="tab-content" id="components-tab">
                         ${this._renderComponentSuggestions(componentSuggestions, metadata)}
                     </div>
-                    ` : ''}
+                    `
+                        : ""
+                    }
 
-                    ${hasBaseStyleComparison ? `
+                    ${
+                      hasBaseStyleComparison
+                        ? `
                     <div class="tab-content" id="basestyle-tab">
                         ${this._renderBaseStyleComparisonTab(baseStyleComparison)}
                     </div>
-                    ` : ''}
+                    `
+                        : ""
+                    }
                 </div>
 
                 <script>
@@ -273,29 +386,39 @@ export class ResultsPanel {
             </body>
             </html>
         `;
+  }
+
+  private _renderIssues(
+    recommendations: AIRecommendation[],
+    metadata: AnalysisMetadata,
+    category: string,
+  ): string {
+    if (recommendations.length === 0) {
+      return `<div class="no-issues">No ${category} issues found! 🎉</div>`;
     }
 
-    private _renderIssues(recommendations: AIRecommendation[], metadata: AnalysisMetadata, category: string): string {
-        if (recommendations.length === 0) {
-            return `<div class="no-issues">No ${category} issues found! 🎉</div>`;
-        }
+    // Sort by priority (high -> medium -> low)
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const sortedRecs = [...recommendations].sort(
+      (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority],
+    );
 
-        // Sort by priority (high -> medium -> low)
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        const sortedRecs = [...recommendations].sort((a, b) => 
-            priorityOrder[a.priority] - priorityOrder[b.priority]
-        );
+    return sortedRecs
+      .map((rec) => this._renderIssueCard(rec, metadata))
+      .join("");
+  }
 
-        return sortedRecs.map(rec => this._renderIssueCard(rec, metadata)).join('');
-    }
+  private _renderIssueCard(
+    rec: AIRecommendation,
+    metadata: AnalysisMetadata,
+  ): string {
+    const file = rec.file || this._getFileForCategory(rec.category, metadata);
+    const line = rec.line || 1;
+    const column = rec.column || 1;
+    const severityClass = `severity-${rec.priority}`;
+    const hasValidFile = file && file.trim().length > 0;
 
-    private _renderIssueCard(rec: AIRecommendation, metadata: AnalysisMetadata): string {
-        const file = rec.file || this._getFileForCategory(rec.category, metadata);
-        const line = rec.line || 1;
-        const column = rec.column || 1;
-        const severityClass = `severity-${rec.priority}`;
-        
-        return `
+    return `
             <div class="issue-card ${severityClass}">
                 <div class="issue-header">
                     <span class="severity-badge ${severityClass}">${rec.priority.toUpperCase()}</span>
@@ -303,63 +426,88 @@ export class ResultsPanel {
                 </div>
                 <h3 class="issue-summary">${this._escapeHtml(rec.summary)}</h3>
                 <p class="issue-recommendation">${this._escapeHtml(rec.recommendation)}</p>
-                ${rec.codeExample ? `
+                ${
+                  rec.codeExample
+                    ? `
                     <div class="code-example">
                         <div class="code-example-header">Suggested Fix:</div>
                         <pre><code>${this._escapeHtml(rec.codeExample)}</code></pre>
                     </div>
-                ` : ''}
+                `
+                    : ""
+                }
+                ${
+                  hasValidFile
+                    ? `
                 <div class="issue-actions">
-                    <button class="btn btn-primary go-to-code" 
-                            data-file="${this._escapeHtml(file)}" 
-                            data-line="${line}" 
+                    <button class="btn btn-primary go-to-code"
+                            data-file="${this._escapeHtml(file)}"
+                            data-line="${line}"
                             data-column="${column}">
                         Go to Code
                     </button>
                 </div>
+                `
+                    : ""
+                }
             </div>
         `;
+  }
+
+  private _getFileForCategory(
+    category: string,
+    metadata: AnalysisMetadata,
+  ): string {
+    if (!metadata.filesAnalyzed) {
+      return "";
     }
 
-    private _getFileForCategory(category: string, metadata: AnalysisMetadata): string {
-        switch (category) {
-            case 'css':
-                return metadata.filesAnalyzed.css || '';
-            case 'typescript':
-                return metadata.filesAnalyzed.typescript;
-            case 'template':
-                return metadata.filesAnalyzed.html || '';
-            default:
-                return '';
-        }
+    switch (category) {
+      case "css":
+        return metadata.filesAnalyzed.css || "";
+      case "typescript":
+        return metadata.filesAnalyzed.typescript || "";
+      case "template":
+        return metadata.filesAnalyzed.html || "";
+      default:
+        return "";
+    }
+  }
+
+  private _renderSimilarityResults(
+    results: SimilarityResult[],
+    metadata: AnalysisMetadata,
+  ): string {
+    if (results.length === 0) {
+      return `<div class="no-issues">No similar classes found in base styles.</div>`;
     }
 
-    private _renderSimilarityResults(results: SimilarityResult[], metadata: AnalysisMetadata): string {
-        if (results.length === 0) {
-            return `<div class="no-issues">No similar classes found in base styles.</div>`;
-        }
+    // Sort by similarity percentage (highest first)
+    const sortedResults = [...results].sort(
+      (a, b) => b.bestMatch.similarityPercent - a.bestMatch.similarityPercent,
+    );
 
-        // Sort by similarity percentage (highest first)
-        const sortedResults = [...results].sort((a, b) => 
-            b.bestMatch.similarityPercent - a.bestMatch.similarityPercent
-        );
+    return sortedResults
+      .map((result) => this._renderSimilarityCard(result, metadata))
+      .join("");
+  }
 
-        return sortedResults.map(result => this._renderSimilarityCard(result, metadata)).join('');
+  private _renderSimilarityCard(
+    result: SimilarityResult,
+    metadata: AnalysisMetadata,
+  ): string {
+    const similarityPercent = result.bestMatch.similarityPercent.toFixed(1);
+    const cssFile = metadata.filesAnalyzed.css || "";
+
+    // Determine similarity level for styling
+    let similarityClass = "similarity-low";
+    if (result.bestMatch.similarityPercent >= 80) {
+      similarityClass = "similarity-high";
+    } else if (result.bestMatch.similarityPercent >= 50) {
+      similarityClass = "similarity-medium";
     }
 
-    private _renderSimilarityCard(result: SimilarityResult, metadata: AnalysisMetadata): string {
-        const similarityPercent = result.bestMatch.similarityPercent.toFixed(1);
-        const cssFile = metadata.filesAnalyzed.css || '';
-        
-        // Determine similarity level for styling
-        let similarityClass = 'similarity-low';
-        if (result.bestMatch.similarityPercent >= 80) {
-            similarityClass = 'similarity-high';
-        } else if (result.bestMatch.similarityPercent >= 50) {
-            similarityClass = 'similarity-medium';
-        }
-
-        return `
+    return `
             <div class="similarity-card ${similarityClass}">
                 <div class="similarity-header">
                     <div class="class-comparison">
@@ -380,31 +528,42 @@ export class ResultsPanel {
                     <span class="file-path">${this._escapeHtml(result.bestMatch.baseFile)}</span>
                 </div>
 
-                ${result.matchingProperties.length > 0 ? `
+                ${
+                  result.matchingProperties.length > 0
+                    ? `
                 <div class="property-section">
                     <div class="property-header matching">
                         <span class="property-icon">✓</span>
                         <span>Matching Properties (${result.matchingProperties.length})</span>
                     </div>
                     <div class="property-list matching">
-                        ${result.matchingProperties.map(prop => 
-                            `<div class="property-item">
+                        ${result.matchingProperties
+                          .map(
+                            (prop) =>
+                              `<div class="property-item">
                                 <span class="property-icon-small">✓</span>
                                 <span>${this._escapeHtml(prop)}</span>
-                            </div>`
-                        ).join('')}
+                            </div>`,
+                          )
+                          .join("")}
                     </div>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
 
-                ${result.differingProperties.length > 0 ? `
+                ${
+                  result.differingProperties.length > 0
+                    ? `
                 <div class="property-section">
                     <div class="property-header differing">
                         <span class="property-icon">⚠</span>
                         <span>Differing Properties (${result.differingProperties.length})</span>
                     </div>
                     <div class="property-list differing">
-                        ${result.differingProperties.map(diff => `
+                        ${result.differingProperties
+                          .map(
+                            (diff) => `
                             <div class="property-diff">
                                 <div class="property-name">
                                     <span class="property-icon-small">⚠</span>
@@ -419,70 +578,91 @@ export class ResultsPanel {
                                     </span>
                                 </div>
                             </div>
-                        `).join('')}
+                        `,
+                          )
+                          .join("")}
                     </div>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
 
-                ${result.redundantProperties.length > 0 ? `
+                ${
+                  result.redundantProperties.length > 0
+                    ? `
                 <div class="property-section">
                     <div class="property-header redundant">
                         <span class="property-icon">✗</span>
                         <span>Redundant Properties (${result.redundantProperties.length})</span>
                     </div>
                     <div class="property-list redundant">
-                        ${result.redundantProperties.map(prop => 
-                            `<div class="property-item">
+                        ${result.redundantProperties
+                          .map(
+                            (prop) =>
+                              `<div class="property-item">
                                 <span class="property-icon-small">✗</span>
                                 <span>${this._escapeHtml(prop)}</span>
-                            </div>`
-                        ).join('')}
+                            </div>`,
+                          )
+                          .join("")}
                     </div>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
 
                 <div class="similarity-actions">
-                    <button class="btn btn-secondary go-to-base-class" 
-                            data-file="${this._escapeHtml(cssFile)}" 
+                    <button class="btn btn-secondary go-to-base-class"
+                            data-file="${this._escapeHtml(cssFile)}"
                             data-class="${this._escapeHtml(result.localClass)}">
                         Go to Local Class
                     </button>
-                    <button class="btn btn-primary go-to-base-class" 
-                            data-file="${this._escapeHtml(result.bestMatch.baseFile)}" 
+                    <button class="btn btn-primary go-to-base-class"
+                            data-file="${this._escapeHtml(result.bestMatch.baseFile)}"
                             data-class="${this._escapeHtml(result.bestMatch.baseClass)}">
                         Go to Base Class
                     </button>
                 </div>
             </div>
         `;
+  }
+
+  private _renderComponentSuggestions(
+    suggestions: ComponentSuggestion[],
+    metadata: AnalysisMetadata,
+  ): string {
+    if (suggestions.length === 0) {
+      return `<div class="no-issues">No component suggestions found. All elements are using design system components! 🎉</div>`;
     }
 
-    private _renderComponentSuggestions(suggestions: ComponentSuggestion[], metadata: AnalysisMetadata): string {
-        if (suggestions.length === 0) {
-            return `<div class="no-issues">No component suggestions found. All elements are using design system components! 🎉</div>`;
-        }
+    // Sort by line number
+    const sortedSuggestions = [...suggestions].sort((a, b) => a.line - b.line);
 
-        // Sort by line number
-        const sortedSuggestions = [...suggestions].sort((a, b) => a.line - b.line);
+    return sortedSuggestions
+      .map((suggestion) =>
+        this._renderComponentSuggestionCard(suggestion, metadata),
+      )
+      .join("");
+  }
 
-        return sortedSuggestions.map(suggestion => this._renderComponentSuggestionCard(suggestion, metadata)).join('');
-    }
+  private _renderComponentSuggestionCard(
+    suggestion: ComponentSuggestion,
+    metadata: AnalysisMetadata,
+  ): string {
+    const htmlFile = metadata.filesAnalyzed.html || "";
 
-    private _renderComponentSuggestionCard(suggestion: ComponentSuggestion, metadata: AnalysisMetadata): string {
-        const htmlFile = metadata.filesAnalyzed.html || '';
-        
-        return `
+    return `
             <div class="component-suggestion-card">
                 <div class="suggestion-header">
                     <span class="element-badge">&lt;${this._escapeHtml(suggestion.nativeElement)}&gt;</span>
                     <span class="line-number">Line ${suggestion.line}</span>
                 </div>
-                
+
                 <div class="suggestion-content">
                     <div class="suggestion-reason">
                         ${this._escapeHtml(suggestion.reason)}
                     </div>
-                    
+
                     <div class="code-comparison">
                         <div class="code-comparison-section">
                             <div class="code-comparison-label before">Current (Native Element)</div>
@@ -490,9 +670,9 @@ export class ResultsPanel {
                                 <code>&lt;${this._escapeHtml(suggestion.nativeElement)}&gt;...&lt;/${this._escapeHtml(suggestion.nativeElement)}&gt;</code>
                             </div>
                         </div>
-                        
+
                         <div class="code-comparison-arrow">→</div>
-                        
+
                         <div class="code-comparison-section">
                             <div class="code-comparison-label after">Suggested (Design System)</div>
                             <div class="code-comparison-code">
@@ -500,7 +680,7 @@ export class ResultsPanel {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="suggestion-benefits">
                         <div class="benefits-title">Benefits of using ${this._escapeHtml(suggestion.suggestedComponent)}:</div>
                         <ul class="benefits-list">
@@ -511,55 +691,60 @@ export class ResultsPanel {
                         </ul>
                     </div>
                 </div>
-                
+
                 <div class="suggestion-actions">
-                    <button class="btn btn-primary go-to-element" 
-                            data-file="${this._escapeHtml(htmlFile)}" 
+                    <button class="btn btn-primary go-to-element"
+                            data-file="${this._escapeHtml(htmlFile)}"
                             data-line="${suggestion.line}">
                         Go to Element
                     </button>
                 </div>
             </div>
         `;
-    }
+  }
 
-    private _renderBaseStyleComparisonTab(result: import('../types').BaseStyleComparisonResult): string {
-        const { duplicates, similarClasses } = result.baseStyleComparison;
-        
-        let content = '<div class="basestyle-comparison-container">';
-        
-        // Render duplicates section
-        if (duplicates.length > 0) {
-            content += `
+  private _renderBaseStyleComparisonTab(
+    result: import("../types").BaseStyleComparisonResult,
+  ): string {
+    const { duplicates, similarClasses } = result.baseStyleComparison;
+
+    let content = '<div class="basestyle-comparison-container">';
+
+    // Render duplicates section
+    if (duplicates.length > 0) {
+      content += `
                 <div class="comparison-section">
                     <h2 class="section-title">Duplicate Classes (${duplicates.length})</h2>
                     <p class="section-description">Classes with identical names found in multiple files</p>
-                    ${duplicates.map(dup => this._renderDuplicateClassCard(dup)).join('')}
+                    ${duplicates.map((dup) => this._renderDuplicateClassCard(dup)).join("")}
                 </div>
             `;
-        }
-        
-        // Render similar classes section
-        if (similarClasses.length > 0) {
-            content += `
+    }
+
+    // Render similar classes section
+    if (similarClasses.length > 0) {
+      content += `
                 <div class="comparison-section">
                     <h2 class="section-title">Similar Classes (${similarClasses.length})</h2>
                     <p class="section-description">Classes with different names but similar properties</p>
-                    ${similarClasses.map(pair => this._renderSimilarClassPairCard(pair)).join('')}
+                    ${similarClasses.map((pair) => this._renderSimilarClassPairCard(pair)).join("")}
                 </div>
             `;
-        }
-        
-        if (duplicates.length === 0 && similarClasses.length === 0) {
-            content += '<div class="no-issues">No duplicate or similar classes found! 🎉</div>';
-        }
-        
-        content += '</div>';
-        return content;
     }
 
-    private _renderDuplicateClassCard(duplicate: import('../types').DuplicateClass): string {
-        return `
+    if (duplicates.length === 0 && similarClasses.length === 0) {
+      content +=
+        '<div class="no-issues">No duplicate or similar classes found! 🎉</div>';
+    }
+
+    content += "</div>";
+    return content;
+  }
+
+  private _renderDuplicateClassCard(
+    duplicate: import("../types").DuplicateClass,
+  ): string {
+    return `
             <div class="basestyle-card duplicate-card">
                 <div class="basestyle-header">
                     <span class="severity-badge severity-high">DUPLICATE</span>
@@ -567,39 +752,45 @@ export class ResultsPanel {
                 </div>
                 <div class="basestyle-content">
                     <p class="duplicate-description">
-                        This class appears in ${duplicate.files.length} different files. 
+                        This class appears in ${duplicate.files.length} different files.
                         Consider consolidating to a single location to avoid conflicts.
                     </p>
                     <div class="file-list">
                         <div class="file-list-header">Found in:</div>
-                        ${duplicate.files.map(file => `
+                        ${duplicate.files
+                          .map(
+                            (file) => `
                             <div class="file-list-item">
                                 <code class="file-path">${this._escapeHtml(file)}</code>
-                                <button class="btn btn-secondary go-to-base-class" 
+                                <button class="btn btn-secondary go-to-base-class"
                                         data-file="${this._escapeHtml(file)}"
                                         data-class="${this._escapeHtml(duplicate.className)}">
                                     Open File
                                 </button>
                             </div>
-                        `).join('')}
+                        `,
+                          )
+                          .join("")}
                     </div>
                 </div>
             </div>
         `;
+  }
+
+  private _renderSimilarClassPairCard(
+    pair: import("../types").SimilarClassPair,
+  ): string {
+    const similarityPercent = pair.similarityPercent.toFixed(1);
+
+    // Determine similarity level for styling
+    let similarityClass = "similarity-low";
+    if (pair.similarityPercent >= 90) {
+      similarityClass = "similarity-high";
+    } else if (pair.similarityPercent >= 80) {
+      similarityClass = "similarity-medium";
     }
 
-    private _renderSimilarClassPairCard(pair: import('../types').SimilarClassPair): string {
-        const similarityPercent = pair.similarityPercent.toFixed(1);
-        
-        // Determine similarity level for styling
-        let similarityClass = 'similarity-low';
-        if (pair.similarityPercent >= 90) {
-            similarityClass = 'similarity-high';
-        } else if (pair.similarityPercent >= 80) {
-            similarityClass = 'similarity-medium';
-        }
-        
-        return `
+    return `
             <div class="basestyle-card similar-card ${similarityClass}">
                 <div class="basestyle-header">
                     <div class="similarity-badge-container">
@@ -614,7 +805,7 @@ export class ResultsPanel {
                         <div class="class-pair-item">
                             <div class="class-pair-name">${this._escapeHtml(pair.class1.name)}</div>
                             <div class="class-pair-file">${this._escapeHtml(pair.class1.file)}</div>
-                            <button class="btn btn-secondary go-to-base-class" 
+                            <button class="btn btn-secondary go-to-base-class"
                                     data-file="${this._escapeHtml(pair.class1.file)}"
                                     data-class="${this._escapeHtml(pair.class1.name)}">
                                 Open File
@@ -624,7 +815,7 @@ export class ResultsPanel {
                         <div class="class-pair-item">
                             <div class="class-pair-name">${this._escapeHtml(pair.class2.name)}</div>
                             <div class="class-pair-file">${this._escapeHtml(pair.class2.file)}</div>
-                            <button class="btn btn-secondary go-to-base-class" 
+                            <button class="btn btn-secondary go-to-base-class"
                                     data-file="${this._escapeHtml(pair.class2.file)}"
                                     data-class="${this._escapeHtml(pair.class2.name)}">
                                 Open File
@@ -632,7 +823,7 @@ export class ResultsPanel {
                         </div>
                     </div>
                     <div class="comparison-actions">
-                        <button class="btn btn-primary compare-files-btn" 
+                        <button class="btn btn-primary compare-files-btn"
                                 data-file1="${this._escapeHtml(pair.class1.file)}"
                                 data-file2="${this._escapeHtml(pair.class2.file)}"
                                 data-class1="${this._escapeHtml(pair.class1.name)}"
@@ -641,32 +832,36 @@ export class ResultsPanel {
                         </button>
                     </div>
                     <p class="similar-description">
-                        These classes share ${similarityPercent}% of their properties. 
+                        These classes share ${similarityPercent}% of their properties.
                         Consider consolidating them or using a common base class.
                     </p>
                 </div>
             </div>
         `;
+  }
+
+  private _escapeHtml(text: string | undefined | null): string {
+    if (!text) {
+      return "";
     }
 
-    private _escapeHtml(text: string): string {
-        const map: { [key: string]: string } = {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            '&': '&amp;',
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            '<': '&lt;',
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            '>': '&gt;',
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            '"': '&quot;',
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
+    const map: { [key: string]: string } = {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      "&": "&amp;",
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      "<": "&lt;",
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      ">": "&gt;",
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      '"': "&quot;",
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      "'": "&#039;",
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+  }
 
-    private _getStyles(): string {
-        return `
+  private _getStyles(): string {
+    return `
             * {
                 margin: 0;
                 padding: 0;
@@ -1445,21 +1640,21 @@ export class ResultsPanel {
                 gap: 8px;
             }
         `;
-    }
+  }
 
-    private _getScript(): string {
-        return `
+  private _getScript(): string {
+    return `
             const vscode = acquireVsCodeApi();
 
             // Tab switching
             document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', () => {
                     const tabName = button.getAttribute('data-tab');
-                    
+
                     // Update active tab button
                     document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
                     button.classList.add('active');
-                    
+
                     // Update active tab content
                     document.querySelectorAll('.tab-content').forEach(content => {
                         content.classList.remove('active');
@@ -1474,7 +1669,7 @@ export class ResultsPanel {
                     const file = button.getAttribute('data-file');
                     const line = parseInt(button.getAttribute('data-line'));
                     const column = parseInt(button.getAttribute('data-column'));
-                    
+
                     vscode.postMessage({
                         command: 'goToCode',
                         file: file,
@@ -1489,7 +1684,7 @@ export class ResultsPanel {
                 button.addEventListener('click', () => {
                     const file = button.getAttribute('data-file');
                     const className = button.getAttribute('data-class');
-                    
+
                     vscode.postMessage({
                         command: 'goToBaseClass',
                         file: file,
@@ -1503,7 +1698,7 @@ export class ResultsPanel {
                 button.addEventListener('click', () => {
                     const file = button.getAttribute('data-file');
                     const line = parseInt(button.getAttribute('data-line'));
-                    
+
                     vscode.postMessage({
                         command: 'goToElement',
                         file: file,
@@ -1519,7 +1714,7 @@ export class ResultsPanel {
                     const file2 = button.getAttribute('data-file2');
                     const class1 = button.getAttribute('data-class1');
                     const class2 = button.getAttribute('data-class2');
-                    
+
                     vscode.postMessage({
                         command: 'compareFiles',
                         file1: file1,
@@ -1530,13 +1725,15 @@ export class ResultsPanel {
                 });
             });
         `;
-    }
+  }
 
-    private _getBaseStyleComparisonHtml(result: import('../types').BaseStyleComparisonResult): string {
-        const timestamp = new Date(result.metadata.analyzedAt).toLocaleString();
-        const { duplicates, similarClasses } = result.baseStyleComparison;
+  private _getBaseStyleComparisonHtml(
+    result: import("../types").BaseStyleComparisonResult,
+  ): string {
+    const timestamp = new Date(result.metadata.analyzedAt).toLocaleString();
+    const { duplicates, similarClasses } = result.baseStyleComparison;
 
-        return `
+    return `
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -1590,11 +1787,11 @@ export class ResultsPanel {
                     document.querySelectorAll('.tab-button').forEach(button => {
                         button.addEventListener('click', () => {
                             const tabName = button.getAttribute('data-tab');
-                            
+
                             // Update active tab button
                             document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
                             button.classList.add('active');
-                            
+
                             // Update active tab content
                             document.querySelectorAll('.tab-content').forEach(content => {
                                 content.classList.remove('active');
@@ -1619,20 +1816,24 @@ export class ResultsPanel {
             </body>
             </html>
         `;
+  }
+
+  private _renderDuplicateClasses(
+    duplicates: import("../types").DuplicateClass[],
+  ): string {
+    if (duplicates.length === 0) {
+      return '<div class="empty-state">No duplicate classes found across the compared files.</div>';
     }
 
-    private _renderDuplicateClasses(duplicates: import('../types').DuplicateClass[]): string {
-        if (duplicates.length === 0) {
-            return '<div class="empty-state">No duplicate classes found across the compared files.</div>';
-        }
-
-        return `
+    return `
             <div class="issues-container">
                 <div class="section-header">
                     <h2>Duplicate Classes</h2>
                     <p class="section-description">Classes with identical names found in multiple files</p>
                 </div>
-                ${duplicates.map(dup => `
+                ${duplicates
+                  .map(
+                    (dup) => `
                     <div class="issue-card duplicate-card">
                         <div class="issue-header">
                             <span class="severity-badge high">Duplicate</span>
@@ -1640,45 +1841,58 @@ export class ResultsPanel {
                         </div>
                         <div class="issue-body">
                             <p class="issue-description">
-                                This class appears in ${dup.files.length} different files. 
+                                This class appears in ${dup.files.length} different files.
                                 Consider consolidating to a single location to avoid conflicts.
                             </p>
                             <div class="file-list">
                                 <strong>Found in:</strong>
                                 <ul>
-                                    ${dup.files.map(file => `
+                                    ${dup.files
+                                      .map(
+                                        (file) => `
                                         <li>
                                             <code>${this._escapeHtml(file)}</code>
-                                            <button class="go-to-file-btn" 
+                                            <button class="go-to-file-btn"
                                                     data-file="${this._escapeHtml(file)}"
                                                     data-class="${this._escapeHtml(dup.className)}">
                                                 Open File
                                             </button>
                                         </li>
-                                    `).join('')}
+                                    `,
+                                      )
+                                      .join("")}
                                 </ul>
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
             </div>
         `;
+  }
+
+  private _renderSimilarClasses(
+    similarClasses: import("../types").SimilarClassPair[],
+  ): string {
+    if (similarClasses.length === 0) {
+      return '<div class="empty-state">No similar classes found above the similarity threshold.</div>';
     }
 
-    private _renderSimilarClasses(similarClasses: import('../types').SimilarClassPair[]): string {
-        if (similarClasses.length === 0) {
-            return '<div class="empty-state">No similar classes found above the similarity threshold.</div>';
-        }
-
-        return `
+    return `
             <div class="issues-container">
                 <div class="section-header">
                     <h2>Similar Classes</h2>
                     <p class="section-description">Classes with different names but similar properties across files</p>
                 </div>
-                ${similarClasses.map(pair => {
-                    const severityClass = pair.similarityPercent >= 90 ? 'high' : 
-                                         pair.similarityPercent >= 80 ? 'medium' : 'low';
+                ${similarClasses
+                  .map((pair) => {
+                    const severityClass =
+                      pair.similarityPercent >= 90
+                        ? "high"
+                        : pair.similarityPercent >= 80
+                          ? "medium"
+                          : "low";
                     return `
                         <div class="issue-card similarity-card">
                             <div class="issue-header">
@@ -1690,7 +1904,7 @@ export class ResultsPanel {
                                     <div class="class-reference">
                                         <strong>${this._escapeHtml(pair.class1.name)}</strong>
                                         <div class="file-path">${this._escapeHtml(pair.class1.file)}</div>
-                                        <button class="go-to-file-btn" 
+                                        <button class="go-to-file-btn"
                                                 data-file="${this._escapeHtml(pair.class1.file)}"
                                                 data-class="${this._escapeHtml(pair.class1.name)}">
                                             Open File
@@ -1700,7 +1914,7 @@ export class ResultsPanel {
                                     <div class="class-reference">
                                         <strong>${this._escapeHtml(pair.class2.name)}</strong>
                                         <div class="file-path">${this._escapeHtml(pair.class2.file)}</div>
-                                        <button class="go-to-file-btn" 
+                                        <button class="go-to-file-btn"
                                                 data-file="${this._escapeHtml(pair.class2.file)}"
                                                 data-class="${this._escapeHtml(pair.class2.name)}">
                                             Open File
@@ -1711,19 +1925,20 @@ export class ResultsPanel {
                                     <div class="similarity-bar" style="width: ${pair.similarityPercent}%"></div>
                                 </div>
                                 <p class="issue-description">
-                                    These classes share ${pair.similarityPercent.toFixed(1)}% of their properties. 
+                                    These classes share ${pair.similarityPercent.toFixed(1)}% of their properties.
                                     Consider consolidating them or using a common base class.
                                 </p>
                             </div>
                         </div>
                     `;
-                }).join('')}
+                  })
+                  .join("")}
             </div>
         `;
-    }
+  }
 
-    private _renderComparedFiles(files: string[]): string {
-        return `
+  private _renderComparedFiles(files: string[]): string {
+    return `
             <div class="issues-container">
                 <div class="section-header">
                     <h2>Compared Files</h2>
@@ -1731,20 +1946,24 @@ export class ResultsPanel {
                 </div>
                 <div class="file-list-container">
                     <ul class="compared-files-list">
-                        ${files.map((file, index) => `
+                        ${files
+                          .map(
+                            (file, index) => `
                             <li class="file-item">
                                 <span class="file-number">${index + 1}</span>
                                 <code class="file-path">${this._escapeHtml(file)}</code>
-                                <button class="go-to-file-btn" 
+                                <button class="go-to-file-btn"
                                         data-file="${this._escapeHtml(file)}"
                                         data-class="">
                                     Open File
                                 </button>
                             </li>
-                        `).join('')}
+                        `,
+                          )
+                          .join("")}
                     </ul>
                 </div>
             </div>
         `;
-    }
+  }
 }
