@@ -1,0 +1,403 @@
+
+> ai-frontend-optimizer@0.0.1 compile
+> webpack
+
+asset [1m[32mbin/analyzer-win.exe[39m[22m 7.41 MiB [1m[33m[compared for emit][39m[22m [from: rust-analyzer/bin/analyzer-win.exe] [1m[32m[copied][39m[22m
+asset [1m[32mextension.js[39m[22m 1.12 MiB [1m[33m[compared for emit][39m[22m (name: main) 1 related asset
+asset [1m[32mbin/checksums.json[39m[22m 503 bytes [1m[33m[compared for emit][39m[22m [from: rust-analyzer/bin/checksums.json] [1m[32m[copied][39m[22m
+asset [1m[32mbin/.gitkeep[39m[22m 70 bytes [1m[33m[compared for emit][39m[22m [from: rust-analyzer/bin/.gitkeep] [1m[32m[copied][39m[22m
+modules by path [1m./node_modules/[39m[22m 948 KiB 135 modules
+modules by path [1m./src/[39m[22m 179 KiB
+  modules by path [1m./src/utils/*.ts[39m[22m 59.1 KiB 9 modules
+  modules by path [1m./src/services/*.ts[39m[22m 27.6 KiB 2 modules
+  [1m./src/extension.ts[39m[22m 15.3 KiB [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m [1m[31m[3 errors][39m[22m
+  [1m./src/commands/optimizeCommand.ts[39m[22m 8.92 KiB [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m [1m[31m[8 errors][39m[22m
+  [1m./src/panels/resultsPanel.ts[39m[22m 68 KiB [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m [1m[31m[49 errors][39m[22m
++ 16 modules
+
+[1m[31mERROR[39m[22m in [1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m41:32-76[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve '../services/rustAnalyzerRunner.v2' in 'D:\Repositorie\FrontOptimize\src\commands'[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m42:23-58[39m[22m
+[1mModule [1m[31mnot found[39m[22m[1m: [1m[31mError[39m[22m[1m: Can't resolve '../services/aiService.v2' in 'D:\Repositorie\FrontOptimize\src\commands'[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\extension.ts[39m[22m
+[1m./src/extension.ts[39m[22m [1m[32m2:67-84[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\extension.ts(2,68)
+      TS2305: Module '"./commands/optimizeCommand"' has no exported member 'optimizeSelection'.[39m[22m
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\extension.ts[39m[22m
+[1m./src/extension.ts[39m[22m [1m[32m125:44-59[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\extension.ts(125,45)
+      TS2339: Property 'promptForApiKey' does not exist on type 'AIService'.[39m[22m
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\extension.ts[39m[22m
+[1m./src/extension.ts[39m[22m [1m[32m242:58-75[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\extension.ts(242,59)
+      TS2339: Property 'compareBaseStyles' does not exist on type 'RustAnalyzerRunner'.[39m[22m
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m6:7-42[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(6,8)
+      TS2307: Cannot find module '../services/rustAnalyzerRunner.v2' or its corresponding type declarations.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m7:26-52[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(7,27)
+      TS2307: Cannot find module '../services/aiService.v2' or its corresponding type declarations.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m105:36-46[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(105,37)
+      TS2339: Property 'typescript' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m106:30-34[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(106,31)
+      TS2339: Property 'html' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m107:29-32[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(107,30)
+      TS2339: Property 'css' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m120:36-46[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(120,37)
+      TS2339: Property 'typescript' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m121:30-34[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(121,31)
+      TS2339: Property 'html' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts[39m[22m
+[1m./src/commands/optimizeCommand.ts[39m[22m [1m[32m122:29-32[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\commands\optimizeCommand.ts(122,30)
+      TS2339: Property 'css' does not exist on type 'ComponentFilesResult'.[39m[22m
+ @ ./src/extension.ts 39:26-63
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m487:18-27[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(487,19)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m487:50-59[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(487,51)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m499:37-46[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(499,38)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m504:15-24[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(504,16)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m506:22-31[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(506,23)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m514:76-86[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(514,77)
+      TS2339: Property 'localClass' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m516:75-84[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(516,76)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m528:70-79[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(528,71)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m532:25-43[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(532,26)
+      TS2339: Property 'matchingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m537:60-78[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(537,61)
+      TS2339: Property 'matchingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m540:33-51[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(540,34)
+      TS2339: Property 'matchingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m542:29-33[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(542,30)
+      TS7006: Parameter 'prop' implicitly has an 'any' type.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m556:25-44[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(556,26)
+      TS2339: Property 'differingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m561:61-80[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(561,62)
+      TS2339: Property 'differingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m564:33-52[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(564,34)
+      TS2339: Property 'differingProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m566:29-33[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(566,30)
+      TS7006: Parameter 'diff' implicitly has an 'any' type.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m591:25-44[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(591,26)
+      TS2339: Property 'redundantProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m596:61-80[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(596,62)
+      TS2339: Property 'redundantProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m599:33-52[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(599,34)
+      TS2339: Property 'redundantProperties' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m601:29-33[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(601,30)
+      TS7006: Parameter 'prop' implicitly has an 'any' type.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m617:66-76[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(617,67)
+      TS2339: Property 'localClass' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m621:65-74[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(621,66)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m622:66-75[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(622,67)
+      TS2339: Property 'bestMatch' does not exist on type '{ currentClass: string; similarClass: string; similarity: number; file: string; line: number; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m657:82-95[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(657,83)
+      TS2339: Property 'nativeElement' does not exist on type '{ pattern: string; suggestedComponent: string; reason: string; file: string; line: number; confidence: number; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m670:72-85[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(670,73)
+      TS2339: Property 'nativeElement' does not exist on type '{ pattern: string; suggestedComponent: string; reason: string; file: string; line: number; confidence: number; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m670:129-142[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(670,130)
+      TS2339: Property 'nativeElement' does not exist on type '{ pattern: string; suggestedComponent: string; reason: string; file: string; line: number; confidence: number; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m783:35-52[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(783,36)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m787:13-30[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(787,14)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m789:20-37[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(789,21)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m806:88-92[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(806,89)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m810:79-83[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(810,80)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m816:88-92[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(816,89)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m820:79-83[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(820,80)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m829:76-80[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(829,77)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m830:76-80[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(830,77)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1733:38-46[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1733,39)
+      TS2339: Property 'metadata' does not exist on type '{ baseStyleComparison: { duplicates: { className: string; files: string[]; properties: Record<string, unknown>; }[]; similarClasses: { class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }[]; analyzedFiles: st...'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1753:79-87[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1753,80)
+      TS2339: Property 'metadata' does not exist on type '{ baseStyleComparison: { duplicates: { className: string; files: string[]; properties: Record<string, unknown>; }[]; similarClasses: { class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }[]; analyzedFiles: st...'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1754:81-89[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1754,82)
+      TS2339: Property 'metadata' does not exist on type '{ baseStyleComparison: { duplicates: { className: string; files: string[]; properties: Record<string, unknown>; }[]; similarClasses: { class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }[]; analyzedFiles: st...'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1766:63-71[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1766,64)
+      TS2339: Property 'metadata' does not exist on type '{ baseStyleComparison: { duplicates: { className: string; files: string[]; properties: Record<string, unknown>; }[]; similarClasses: { class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }[]; analyzedFiles: st...'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1779:59-67[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1779,60)
+      TS2339: Property 'metadata' does not exist on type '{ baseStyleComparison: { duplicates: { className: string; files: string[]; properties: Record<string, unknown>; }[]; similarClasses: { class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }[]; analyzedFiles: st...'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1891:27-44[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1891,28)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1893:31-48[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1893,32)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1899:85-102[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1899,86)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1905:79-83[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1905,80)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1909:91-95[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1909,92)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1915:79-83[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1915,80)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1919:91-95[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1919,92)
+      TS2339: Property 'name' does not exist on type '{ className: string; file: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1925:85-102[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1925,86)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts[39m[22m
+[1m./src/panels/resultsPanel.ts[39m[22m [1m[32m1928:63-80[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\panels\resultsPanel.ts(1928,64)
+      TS2339: Property 'similarityPercent' does not exist on type '{ class1: { className: string; file: string; }; class2: { className: string; file: string; }; similarity: number; commonProperties: string[]; suggestion: string; }'.[39m[22m
+ @ ./src/extension.ts 221:89-121
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\services\rustAnalyzerRunner.ts[39m[22m
+[1m./src/services/rustAnalyzerRunner.ts[39m[22m [1m[32m169:4-10[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\services\rustAnalyzerRunner.ts(169,5)
+      TS2322: Type '{ ok: true; value: Result<{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }, CancellationError | Analy...' is not assignable to type 'Result<{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }, BinaryError | ... 1 more ... | TimeoutError>'.
+  Type '{ ok: true; value: Result<{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }, CancellationError | Analy...' is not assignable to type '{ ok: true; value: { cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }; }'.
+    Types of property 'value' are incompatible.
+      Type 'Result<{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }, CancellationError | AnalysisError>' is not assignable to type '{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }'.
+        Type '{ ok: true; value: { cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }; }' is missing the following properties from type '{ cssIssues: { issueType: string; line: number; column: number; selector: string; description: string; }[]; tsIssues: { issueType: string; line: number; column: number; identifier: string; description: string; }[]; templateIssues: { ...; }[]; metadata: { ...; }; }': cssIssues, tsIssues, templateIssues, metadata[39m[22m
+ @ ./src/extension.ts 41:29-69
+
+[1m[31mERROR[39m[22m in [1mD:\Repositorie\FrontOptimize\src\utils\schemas.ts[39m[22m
+[1m./src/utils/schemas.ts[39m[22m [1m[32m93:16-22[39m[22m
+[1m[tsl] [1m[31mERROR[39m[22m[1m in D:\Repositorie\FrontOptimize\src\utils\schemas.ts(93,17)
+      TS2554: Expected 2-3 arguments, but got 1.[39m[22m
+ @ ./src/services/rustAnalyzerRunner.ts 42:18-45
+ @ ./src/extension.ts 41:29-69
+
+[1m[33m64 errors have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.[39m[22m
+
+webpack 5.102.1 compiled with [1m[31m64 errors[39m[22m in 2593 ms
